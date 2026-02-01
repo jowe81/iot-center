@@ -1,0 +1,21 @@
+{
+    "devices": {
+        "woodshed_01": {
+            "data": {
+                "DeviceControl": [
+                    "isOn"
+                ],
+                "TemperatureReader": [
+                    "tempC"
+                ],
+                "BatteryMonitor": [
+                    "voltage"
+                ],
+                "SystemMonitor": [
+                    "largestBlock",
+                    "uptime"
+                ]
+            }
+        }
+    }
+}
