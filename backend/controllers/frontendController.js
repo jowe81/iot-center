@@ -1,7 +1,10 @@
-const { getDb } = require('../config/db');
+import { createRequire } from 'module';
+import { getDb } from '../config/db.js';
+
+const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
 
-exports.getDevices = async (req, res) => {
+export const getDevices = async (req, res) => {
     try {
         const db = getDb();
         // List all collections
@@ -17,7 +20,7 @@ exports.getDevices = async (req, res) => {
     }
 };
 
-exports.getDeviceStats = async (req, res) => {
+export const getDeviceStats = async (req, res) => {
     try {
         const { deviceId } = req.params;
         const db = getDb();
@@ -64,7 +67,7 @@ exports.getDeviceStats = async (req, res) => {
     }
 };
 
-exports.getControllableDevices = async (req, res) => {
+export const getControllableDevices = async (req, res) => {
     try {
         const { deviceId } = req.params;
         const db = getDb();
@@ -97,11 +100,11 @@ exports.getControllableDevices = async (req, res) => {
     }
 };
 
-exports.getCommandDefinitions = async (req, res) => {
+export const getCommandDefinitions = async (req, res) => {
     res.json(iotConfig.deviceTypes || {});
 };
 
-exports.queueCommand = async (req, res) => {
+export const queueCommand = async (req, res) => {
     try {
         const { deviceId, subDevice, command, argument } = req.body;
 
@@ -131,7 +134,7 @@ exports.queueCommand = async (req, res) => {
     }
 };
 
-exports.getDeviceKeys = async (req, res) => {
+export const getDeviceKeys = async (req, res) => {
     try {
         const { deviceId } = req.params;
         const db = getDb();
@@ -164,7 +167,7 @@ exports.getDeviceKeys = async (req, res) => {
     }
 };
 
-exports.getDeviceData = async (req, res) => {
+export const getDeviceData = async (req, res) => {
     try {
         const { deviceId } = req.params;
         const { field, fields, timeframe, accuracy } = req.query;
@@ -257,7 +260,7 @@ exports.getDeviceData = async (req, res) => {
     }
 };
 
-exports.getDeviceStatus = async (req, res) => {
+export const getDeviceStatus = async (req, res) => {
     try {
         const db = getDb();
         const collections = await db.listCollections().toArray();

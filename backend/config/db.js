@@ -1,5 +1,5 @@
-const { MongoClient } = require('mongodb');
-const log = require('../utils/logger');
+import { MongoClient } from 'mongodb';
+import log from '../utils/logger.js';
 
 const url = 'mongodb://localhost:27017';
 const dbName = 'iot_platform';
@@ -22,4 +22,4 @@ const getDb = () => {
   return _db;
 };
 
-module.exports = { connectDB, getDb };
+export { connectDB, getDb };

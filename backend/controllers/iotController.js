@@ -1,8 +1,11 @@
-const { getDb } = require("../config/db");
-const log = require("../utils/logger");
+import { createRequire } from 'module';
+import { getDb } from "../config/db.js";
+import log from "../utils/logger.js";
+
+const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
 
-exports.processData = async (req, res) => {
+export const processData = async (req, res) => {
     try {
         // Extract deviceId from the nested system object or root
         const deviceId = req.body.system?.deviceId || req.body.deviceId;

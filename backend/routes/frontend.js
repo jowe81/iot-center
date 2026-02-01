@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const frontendController = require('../controllers/frontendController');
+import express from 'express';
+import * as frontendController from '../controllers/frontendController.js';
 
+const router = express.Router();
 router.get('/devices', frontendController.getDevices);
 router.get('/device/:deviceId/keys', frontendController.getDeviceKeys);
 router.get('/device/:deviceId/data', frontendController.getDeviceData);
@@ -11,4 +11,4 @@ router.get('/device/:deviceId/controls', frontendController.getControllableDevic
 router.get('/commands/definitions', frontendController.getCommandDefinitions);
 router.post('/commands/queue', frontendController.queueCommand);
 
-module.exports = router;
+export default router;

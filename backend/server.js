@@ -1,9 +1,13 @@
-const express = require('express');
-const path = require('path');
-const { connectDB } = require('./config/db');
-const apiRoutes = require('./routes/api');
-const frontendRoutes = require('./routes/frontend');
-const log = require('./utils/logger');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { connectDB } from './config/db.js';
+import apiRoutes from './routes/api.js';
+import frontendRoutes from './routes/frontend.js';
+import log from './utils/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 

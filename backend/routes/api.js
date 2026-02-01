@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const iotController = require('../controllers/iotController');
+import express from 'express';
+import * as iotController from '../controllers/iotController.js';
 
+const router = express.Router();
 router.post('/', iotController.processData);
 
-module.exports = router;
+export default router;
