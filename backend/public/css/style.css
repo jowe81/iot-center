@@ -56,3 +56,39 @@ select[multiple] {
     height: 400px;
     width: 100%;
 }
+
+.main-nav ul {
+    list-style: none;
+    padding: 0;
+}
+
+.main-nav li {
+    margin-bottom: 10px;
+}
+
+.main-nav a {
+    display: block;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.main-nav a:hover {
+    background: #e9ecef;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: #666;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}

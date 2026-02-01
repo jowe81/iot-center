@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js and Date Adapter via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <a href="/" class="back-link">&larr; Back to Home</a>
+            <h1>IoT Device Monitor</h1>
+        </header>
+
+        <div class="controls">
+            <div class="column">
+                <div class="control-group">
+                    <label for="deviceSelect">Device:</label>
+                    <select id="deviceSelect">
+                        <option value="">Select a device...</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="fieldSelect">Data Field:</label>
+                    <select id="fieldSelect" disabled multiple size="8">
+                    </select>
+                </div>
+            </div>
+
+            <div class="column">
+                <div class="control-group">
+                    <label for="timeframeSelect">Timeframe:</label>
+                    <select id="timeframeSelect">
+                        <option value="30m">30 Minutes</option>
+                        <option value="1h">1 Hour</option>
+                        <option value="3h">3 Hours</option>
+                        <option value="6h">6 Hours</option>
+                        <option value="12h">12 Hours</option>
+                        <option value="24h" selected>24 Hours</option>
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                        <option value="1y">1 Year</option>
+                        <option value="5y">5 Years</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="accuracySelect">Rounding:</label>
+                    <select id="accuracySelect">
+                        <option value="raw" selected>Raw Data</option>
+                        <option value="0.001">3 Decimals</option>
+                        <option value="0.01">2 Decimals</option>
+                        <option value="0.1">1 Decimal</option>
+                        <option value="1">Integer</option>
+                        <option value="10">Nearest 10</option>
+                        <option value="100">Nearest 100</option>
+                        <option value="1000">Nearest 1,000</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="interpolationSelect">Interpolation:</label>
+                    <select id="interpolationSelect">
+                        <option value="linear" selected>Linear</option>
+                        <option value="smooth">Smooth</option>
+                        <option value="stepped">Stepped</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="dataChart"></canvas>
+        </div>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
