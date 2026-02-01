@@ -141,3 +141,28 @@ exports.getDeviceData = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.getDeviceStatus = async (req, res) => {
+    try {
+        const db = getDb();
+        const collections = await db.listCollections().toArray();
+        const deviceCollections = collections.filter(c => c.name.startsWith('device_'));
+
+        const statusPromises = deviceCollections.map(async (c) => {
+            const deviceId = c.name.replace('device_', '');
+            const collection = db.collection(c.name);
+            const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1 } });
+            return {
+                deviceId,
+                lastSeen: lastDoc ? lastDoc.receivedAt : null
+            };
+        });
+
+        const statuses = await Promise.all(statusPromises);
+        statuses.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+        
+        res.json(statuses);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
