@@ -5,6 +5,7 @@ const accuracySelect = document.getElementById('accuracySelect');
 const interpolationSelect = document.getElementById('interpolationSelect');
 const ctx = document.getElementById('dataChart').getContext('2d');
 const backLink = document.querySelector('.back-link');
+const headerTitle = document.querySelector('header h1');
 
 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#767676'];
 
@@ -65,6 +66,7 @@ async function loadDevices() {
 
         if (deviceId && devices.includes(deviceId)) {
             deviceSelect.value = deviceId;
+            if (headerTitle) headerTitle.textContent = `Data Graph: ${deviceId}`;
             await loadKeys(deviceId);
             
             // Restore selected fields
@@ -96,10 +98,16 @@ async function loadKeys(deviceId) {
         const res = await fetch(`/api/device/${deviceId}/keys`);
         const keys = await res.json();
         
+        keys.sort((a, b) => {
+            const labelA = a.replace(/^data\./, '');
+            const labelB = b.replace(/^data\./, '');
+            return labelA.localeCompare(labelB);
+        });
+
         keys.forEach(key => {
             const option = document.createElement('option');
             option.value = key;
-            option.textContent = key;
+            option.textContent = key.replace(/^data\./, '');
             fieldSelect.appendChild(option);
         });
         fieldSelect.disabled = false;
@@ -161,6 +169,7 @@ async function updateChart() {
 
 // Event Listeners
 deviceSelect.addEventListener('change', (e) => {
+    if (headerTitle) headerTitle.textContent = `Data Graph: ${e.target.value}`;
     loadKeys(e.target.value);
     if (backLink) backLink.href = `manager.html?deviceId=${e.target.value}`;
 });

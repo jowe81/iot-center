@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard</title>
+    <title>Data Graph (All Devices)</title>
     <link rel="stylesheet" href="css/style.css">
     <!-- Chart.js and Date Adapter via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,19 +15,12 @@
 <body>
     <div class="container">
         <header>
-            <a href="manager.html" class="back-link">&larr; Back to Manager</a>
-            <h1>Data Graph</h1>
+            <a href="index.html" class="back-link">&larr; Back to Home</a>
+            <h1>Data Graph (All Devices)</h1>
         </header>
 
         <div class="controls">
             <div class="column">
-                <div class="control-group">
-                    <label for="deviceSelect">Device:</label>
-                    <select id="deviceSelect">
-                        <option value="">Select a device...</option>
-                    </select>
-                </div>
-
                 <div class="control-group">
                     <label for="fieldSelect">Data Field:</label>
                     <select id="fieldSelect" disabled multiple size="8">
@@ -82,7 +75,7 @@
             <canvas id="dataChart"></canvas>
         </div>
     </div>
-    <script src="js/graph.js"></script>
+    <script src="js/graph_all.js"></script>
 </body>
 
 </html>
