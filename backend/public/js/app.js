@@ -53,6 +53,13 @@ async function loadDevices() {
             option.textContent = device;
             deviceSelect.appendChild(option);
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('deviceId');
+        if (deviceId && devices.includes(deviceId)) {
+            deviceSelect.value = deviceId;
+            loadKeys(deviceId);
+        }
     } catch (err) {
         console.error('Failed to load devices', err);
     }

@@ -27,7 +27,10 @@ async function loadStatus() {
             const row = document.createElement('tr');
             
             const idCell = document.createElement('td');
-            idCell.textContent = status.deviceId;
+            const link = document.createElement('a');
+            link.href = `graph.html?deviceId=${status.deviceId}`;
+            link.textContent = status.deviceId;
+            idCell.appendChild(link);
             
             const timeCell = document.createElement('td');
             const agoCell = document.createElement('td');
