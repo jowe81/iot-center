@@ -1,4 +1,5 @@
 const { getDb } = require('../config/db');
+const iotConfig = require('../config/iotConfig.json');
 
 exports.getDevices = async (req, res) => {
     try {
@@ -11,6 +12,73 @@ exports.getDevices = async (req, res) => {
             .map(c => c.name.replace('device_', ''));
         
         res.json(devices);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getControllableDevices = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const db = getDb();
+        const collection = db.collection(`device_${deviceId}`);
+        
+        // Get the most recent document to find available sub-devices
+        const doc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+        
+        if (!doc || !doc.data) {
+            return res.json([]);
+        }
+
+        const controllable = [];
+        const supportedTypes = Object.keys(iotConfig.deviceTypes || {});
+
+        for (const [type, subDevices] of Object.entries(doc.data)) {
+            if (supportedTypes.includes(type)) {
+                for (const subDeviceName of Object.keys(subDevices)) {
+                    controllable.push({
+                        name: subDeviceName,
+                        type: type
+                    });
+                }
+            }
+        }
+
+        res.json(controllable);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getCommandDefinitions = async (req, res) => {
+    res.json(iotConfig.deviceTypes || {});
+};
+
+exports.queueCommand = async (req, res) => {
+    try {
+        const { deviceId, subDevice, command, argument } = req.body;
+
+        if (!deviceId || !subDevice || !command) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        const db = getDb();
+        const commandQueue = db.collection('command_queue');
+
+        const commandObj = {
+            [subDevice]: {
+                [command]: argument
+            }
+        };
+
+        await commandQueue.insertOne({
+            deviceId,
+            command: commandObj,
+            status: 'pending',
+            createdAt: new Date()
+        });
+
+        res.json({ status: "Queued" });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -17,5 +17,13 @@
                 ]
             }
         }
+    },
+    "deviceTypes": {
+        "DeviceControl": {
+            "supportedCommands": {
+                "setState": "boolean",
+                "toggleState": "boolean"
+            }
+        }
     }
 }

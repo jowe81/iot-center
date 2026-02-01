@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Control</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="/" class="back-link">&larr; Back to Home</a>
+            <h1>Device Control</h1>
+        </header>
+
+        <div class="controls">
+            <div class="column">
+                <div class="control-group">
+                    <label for="deviceSelect">Device:</label>
+                    <select id="deviceSelect">
+                        <option value="">Select a device...</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="subDeviceSelect">Sub-Device:</label>
+                    <select id="subDeviceSelect" disabled>
+                        <option value="">Select a sub-device...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="column">
+                <div class="control-group">
+                    <label for="commandSelect">Command:</label>
+                    <select id="commandSelect" disabled>
+                        <option value="">Select a command...</option>
+                    </select>
+                </div>
+
+                <div class="control-group" id="argContainer" style="display:none;">
+                    <label for="argSelect">Argument:</label>
+                    <select id="argSelect">
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <button id="sendCommandBtn" disabled>Send Command</button>
+                </div>
+                <div id="message" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    </div>
+    <script src="js/control.js"></script>
+</body>
+</html>

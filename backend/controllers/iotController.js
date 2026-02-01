@@ -58,7 +58,24 @@ exports.processData = async (req, res) => {
         const collection = db.collection(`device_${deviceId}`);
         await collection.insertOne(filteredData);
 
-        res.status(201).send({ status: "Recorded", collection: `device_${deviceId}` });
+        // Check for pending commands
+        const commandCollection = db.collection('command_queue');
+        const pendingCommands = await commandCollection.find({ deviceId, status: 'pending' }).toArray();
+
+        const responsePayload = { status: "Recorded", collection: `device_${deviceId}` };
+
+        if (pendingCommands.length > 0) {
+            const commands = {};
+            for (const cmd of pendingCommands) {
+                Object.assign(commands, cmd.command);
+                // Mark as sent
+                await commandCollection.updateOne({ _id: cmd._id }, { $set: { status: 'sent', sentAt: new Date() } });
+            }
+            Object.assign(responsePayload, commands);
+            log.info(`Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
+        }
+
+        res.status(201).send(responsePayload);
         log.info(`Data recorded for device: ${deviceId}`);
     } catch (error) {
         log.error("Error processing data", error);
