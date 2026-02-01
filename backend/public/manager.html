@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Manager</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="/" class="back-link">&larr; Back to Home</a>
+            <h1>Device Manager</h1>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="deviceSelect">Select Device:</label>
+                <select id="deviceSelect">
+                    <option value="">Select a device...</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="deviceStats" class="stats-container" style="display:none;">
+            <div class="stats-grid">
+                <div><strong>Last Seen:</strong><br><span id="statLastSeen">-</span></div>
+                <div><strong>Total Records:</strong><br><span id="statTotal">-</span></div>
+                <div><strong>Records Today:</strong><br><span id="statToday">-</span></div>
+                <div><strong>Daily:</strong><br><span id="statAvg">-</span></div>
+            </div>
+        </div>
+
+        <div id="managerActions" style="display:none; margin-top: 20px;">
+            <nav class="main-nav">
+                <ul>
+                    <li><a id="monitorLink" href="#">Device Monitor (Graph)</a></li>
+                    <li><a id="controlLink" href="#">Device Control</a></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+    <script src="js/manager.js"></script>
+</body>
+</html>

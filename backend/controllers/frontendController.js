@@ -17,6 +17,53 @@ exports.getDevices = async (req, res) => {
     }
 };
 
+exports.getDeviceStats = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const db = getDb();
+        const collection = db.collection(`device_${deviceId}`);
+
+        const totalRecords = await collection.countDocuments();
+        
+        if (totalRecords === 0) {
+            return res.json({
+                lastSeen: null,
+                totalRecords: 0,
+                recordsToday: 0,
+                dailyAvg: 0
+            });
+        }
+
+        const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1 } });
+        const firstDoc = await collection.findOne({}, { sort: { receivedAt: 1 }, projection: { receivedAt: 1 } });
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const recordsToday = await collection.countDocuments({ 
+            receivedAt: { $gte: startOfToday } 
+        });
+
+        let dailyAvg = 0;
+        if (firstDoc && lastDoc) {
+            const firstDate = new Date(firstDoc.receivedAt);
+            const lastDate = new Date(lastDoc.receivedAt);
+            const timeDiff = Math.abs(lastDate - firstDate);
+            const daysDiff = timeDiff / (1000 * 3600 * 24);
+            dailyAvg = Math.round(totalRecords / Math.max(1, daysDiff));
+        }
+
+        res.json({
+            lastSeen: lastDoc ? lastDoc.receivedAt : null,
+            totalRecords,
+            recordsToday,
+            dailyAvg
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.getControllableDevices = async (req, res) => {
     try {
         const { deviceId } = req.params;

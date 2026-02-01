@@ -4,6 +4,7 @@ const timeframeSelect = document.getElementById('timeframeSelect');
 const accuracySelect = document.getElementById('accuracySelect');
 const interpolationSelect = document.getElementById('interpolationSelect');
 const ctx = document.getElementById('dataChart').getContext('2d');
+const backLink = document.querySelector('.back-link');
 
 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#767676'];
 
@@ -56,9 +57,28 @@ async function loadDevices() {
 
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('deviceId');
+
+        // Restore other controls from URL
+        if (urlParams.has('timeframe')) timeframeSelect.value = urlParams.get('timeframe');
+        if (urlParams.has('accuracy')) accuracySelect.value = urlParams.get('accuracy');
+        if (urlParams.has('interpolation')) interpolationSelect.value = urlParams.get('interpolation');
+
         if (deviceId && devices.includes(deviceId)) {
             deviceSelect.value = deviceId;
-            loadKeys(deviceId);
+            await loadKeys(deviceId);
+            
+            // Restore selected fields
+            const fieldsParam = urlParams.get('fields');
+            if (fieldsParam) {
+                const fields = fieldsParam.split(',');
+                Array.from(fieldSelect.options).forEach(opt => {
+                    if (fields.includes(opt.value)) opt.selected = true;
+                });
+                updateChart();
+            }
+
+            deviceSelect.parentElement.style.display = 'none';
+            if (backLink) backLink.href = `manager.html?deviceId=${deviceId}`;
         }
     } catch (err) {
         console.error('Failed to load devices', err);
@@ -93,6 +113,20 @@ async function updateChart() {
     const deviceId = deviceSelect.value;
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
 
+    // Update URL parameters
+    const params = new URLSearchParams(window.location.search);
+    if (deviceId) params.set('deviceId', deviceId);
+    if (selectedOptions.length > 0) {
+        params.set('fields', selectedOptions.join(','));
+    } else {
+        params.delete('fields');
+    }
+    params.set('timeframe', timeframeSelect.value);
+    params.set('accuracy', accuracySelect.value);
+    params.set('interpolation', interpolationSelect.value);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+
     if (!deviceId || selectedOptions.length === 0) return;
 
     const timeframe = timeframeSelect.value;
@@ -126,7 +160,10 @@ async function updateChart() {
 }
 
 // Event Listeners
-deviceSelect.addEventListener('change', (e) => loadKeys(e.target.value));
+deviceSelect.addEventListener('change', (e) => {
+    loadKeys(e.target.value);
+    if (backLink) backLink.href = `manager.html?deviceId=${e.target.value}`;
+});
 fieldSelect.addEventListener('change', updateChart);
 timeframeSelect.addEventListener('change', updateChart);
 accuracySelect.addEventListener('change', updateChart);
@@ -135,3 +172,6 @@ interpolationSelect.addEventListener('change', updateChart);
 // Start
 initChart();
 loadDevices();
+
+// Auto-refresh data every minute
+setInterval(updateChart, 60000);

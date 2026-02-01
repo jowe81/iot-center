@@ -5,6 +5,7 @@ const argSelect = document.getElementById('argSelect');
 const argContainer = document.getElementById('argContainer');
 const sendBtn = document.getElementById('sendCommandBtn');
 const messageDiv = document.getElementById('message');
+const backLink = document.querySelector('.back-link');
 
 let commandDefinitions = {};
 let currentSubDeviceType = null;
@@ -26,6 +27,28 @@ async function init() {
             option.textContent = device;
             deviceSelect.appendChild(option);
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('deviceId');
+        if (deviceId && devices.includes(deviceId)) {
+            deviceSelect.value = deviceId;
+            await loadSubDevices(deviceId);
+            deviceSelect.parentElement.style.display = 'none';
+            if (backLink) backLink.href = `manager.html?deviceId=${deviceId}`;
+
+            // Restore sub-device and command from URL
+            const subDevice = urlParams.get('subDevice');
+            if (subDevice && subDeviceSelect.querySelector(`option[value="${subDevice}"]`)) {
+                subDeviceSelect.value = subDevice;
+                loadCommands();
+
+                const command = urlParams.get('command');
+                if (command && commandSelect.querySelector(`option[value="${command}"]`)) {
+                    commandSelect.value = command;
+                    showArgument();
+                }
+            }
+        }
     } catch (err) {
         console.error('Failed to init', err);
     }
@@ -125,9 +148,33 @@ async function sendCommand() {
     }
 }
 
-deviceSelect.addEventListener('change', (e) => loadSubDevices(e.target.value));
-subDeviceSelect.addEventListener('change', loadCommands);
-commandSelect.addEventListener('change', showArgument);
+function updateUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (deviceSelect.value) params.set('deviceId', deviceSelect.value);
+    
+    if (subDeviceSelect.value) params.set('subDevice', subDeviceSelect.value);
+    else params.delete('subDevice');
+
+    if (commandSelect.value) params.set('command', commandSelect.value);
+    else params.delete('command');
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+}
+
+deviceSelect.addEventListener('change', (e) => {
+    loadSubDevices(e.target.value);
+    if (backLink) backLink.href = `manager.html?deviceId=${e.target.value}`;
+    updateUrl();
+});
+subDeviceSelect.addEventListener('change', () => {
+    loadCommands();
+    updateUrl();
+});
+commandSelect.addEventListener('change', () => {
+    showArgument();
+    updateUrl();
+});
 sendBtn.addEventListener('click', sendCommand);
 
 init();
