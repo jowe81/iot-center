@@ -3,6 +3,7 @@ const subDeviceSelect = document.getElementById('subDeviceSelect');
 const commandSelect = document.getElementById('commandSelect');
 const argSelect = document.getElementById('argSelect');
 const argContainer = document.getElementById('argContainer');
+const argInputInt = document.getElementById('argInputInt');
 const sendBtn = document.getElementById('sendCommandBtn');
 const messageDiv = document.getElementById('message');
 const backLink = document.querySelector('.back-link');
@@ -119,6 +120,13 @@ function showArgument() {
     const argType = selectedOption.dataset.argType;
     if (argType === 'boolean') {
         argContainer.style.display = 'flex';
+        argSelect.style.display = '';
+        argInputInt.style.display = 'none';
+        sendBtn.disabled = false;
+    } else if (argType === 'integer') {
+        argContainer.style.display = 'flex';
+        argSelect.style.display = 'none';
+        argInputInt.style.display = '';
         sendBtn.disabled = false;
     } else {
         // Extend here for other types later
@@ -131,7 +139,16 @@ async function sendCommand() {
     const deviceId = deviceSelect.value;
     const subDevice = subDeviceSelect.value;
     const command = commandSelect.value;
-    const argument = argSelect.value === 'true'; // Convert string to boolean
+    
+    const selectedOption = commandSelect.selectedOptions[0];
+    const argType = selectedOption ? selectedOption.dataset.argType : null;
+    let argument;
+
+    if (argType === 'integer') {
+        argument = parseInt(argInputInt.value, 10);
+    } else {
+        argument = argSelect.value === 'true'; // Convert string to boolean
+    }
 
     try {
         const res = await fetch('/api/commands/queue', {

@@ -14,15 +14,29 @@
                 "SystemMonitor": [
                     "largestBlock",
                     "uptime"
+                ],
+                "DataExchanger": [
+                    "interval",
+                    "trigger"
                 ]
             }
         }
     },
     "deviceTypes": {
+        "DataExchanger": {
+            "supportedCommands": {
+                "interval": "integer"
+            }
+        },
         "DeviceControl": {
             "supportedCommands": {
                 "setState": "boolean",
                 "toggleState": "boolean"
+            }
+        },
+        "SystemMonitor": {
+            "supportedCommands": {
+                "reboot": "boolean"
             }
         }
     }

@@ -7,8 +7,19 @@ const iotConfig = require("../config/iotConfig.json");
 
 export const processData = async (req, res) => {
     try {
-        // Extract deviceId from the nested system object or root
-        const deviceId = req.body.system?.deviceId || req.body.deviceId;
+        // Extract deviceId from the first device of type SystemMonitor
+        let deviceId;
+        for (const value of Object.values(req.body)) {
+            if (value && typeof value === 'object' && value.type === 'SystemMonitor' && value.deviceId) {
+                deviceId = value.deviceId;
+                break;
+            }
+        }
+
+        // Fallback: if no id was found, see if there's on at the toplevel.
+        if (!deviceId) {
+            deviceId = req.body.deviceId;
+        }
 
         if (!deviceId) {
             log.info(`Received data from unknown device without an id. Ignoring.`);
@@ -25,14 +36,8 @@ export const processData = async (req, res) => {
         const deviceConfig = deviceSettings.data || {};
 
         const filteredData = {
-            transmissionReason: null,
             data: {},
         };
-
-        // Always keep transmissionReason if present
-        if (req.body.transmissionReason) {
-            filteredData.transmissionReason = req.body.transmissionReason;
-        }
 
         // Iterate over top-level keys to find typed objects
         for (const [key, value] of Object.entries(req.body)) {
