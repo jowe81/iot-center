@@ -4,6 +4,7 @@ const commandSelect = document.getElementById('commandSelect');
 const argSelect = document.getElementById('argSelect');
 const argContainer = document.getElementById('argContainer');
 const argInputInt = document.getElementById('argInputInt');
+const argInputString = document.getElementById('argInputString');
 const sendBtn = document.getElementById('sendCommandBtn');
 const messageDiv = document.getElementById('message');
 const backLink = document.querySelector('.back-link');
@@ -118,20 +119,23 @@ function showArgument() {
     }
 
     const argType = selectedOption.dataset.argType;
+
+    // Reset UI state
+    argSelect.style.display = 'none';
+    argInputInt.style.display = 'none';
+    argInputString.style.display = 'none';
+    argContainer.style.display = 'none';
+    sendBtn.disabled = false;
+
     if (argType === 'boolean') {
         argContainer.style.display = 'flex';
         argSelect.style.display = '';
-        argInputInt.style.display = 'none';
-        sendBtn.disabled = false;
     } else if (argType === 'integer') {
         argContainer.style.display = 'flex';
-        argSelect.style.display = 'none';
         argInputInt.style.display = '';
-        sendBtn.disabled = false;
-    } else {
-        // Extend here for other types later
-        argContainer.style.display = 'none';
-        sendBtn.disabled = false; // Enable if no arg needed? User prompt implies boolean always for now.
+    } else if (argType === 'string') {
+        argContainer.style.display = 'flex';
+        argInputString.style.display = '';
     }
 }
 
@@ -146,6 +150,8 @@ async function sendCommand() {
 
     if (argType === 'integer') {
         argument = parseInt(argInputInt.value, 10);
+    } else if (argType === 'string') {
+        argument = argInputString.value;
     } else {
         argument = argSelect.value === 'true'; // Convert string to boolean
     }

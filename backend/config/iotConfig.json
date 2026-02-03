@@ -25,7 +25,8 @@
     "deviceTypes": {
         "DataExchanger": {
             "supportedCommands": {
-                "interval": "integer"
+                "setInterval": "integer",
+                "setUrl": "string"
             }
         },
         "DeviceControl": {
