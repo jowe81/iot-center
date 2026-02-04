@@ -284,3 +284,16 @@ export const getDeviceStatus = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getLatestData = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const db = getDb();
+        const collection = db.collection(`device_${deviceId}`);
+
+        const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+        res.json(latestDoc);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

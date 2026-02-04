@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Device Manager</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            font-size: 0.9em;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -31,6 +36,17 @@
             </div>
         </div>
 
+        <div id="latestDataSection" style="display:none; margin-top: 20px;">
+            <div class="stats-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Latest Data Received</h3>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tbody id="latestDataBody"></tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="managerActions" style="display:none; margin-top: 20px;">
             <nav class="main-nav">
                 <ul>
@@ -40,6 +56,8 @@
             </nav>
         </div>
     </div>
+    <script src="js/utils.js"></script>
     <script src="js/manager.js"></script>
+    <script src="js/manager_latest.js"></script>
 </body>
 </html>

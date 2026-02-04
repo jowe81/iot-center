@@ -27,6 +27,28 @@ async function loadDevices() {
     }
 }
 
+async function updateStats(deviceId) {
+    try {
+        const res = await fetch(`/api/device/${deviceId}/stats`);
+        const stats = await res.json();
+        
+        if (stats.lastSeen) {
+            const diff = Date.now() - new Date(stats.lastSeen).getTime();
+            document.getElementById('statLastSeen').textContent = `${formatDuration(diff)} ago`;
+            document.getElementById('statLastSeen').title = new Date(stats.lastSeen).toLocaleString();
+        } else {
+            document.getElementById('statLastSeen').textContent = 'Never';
+        }
+        document.getElementById('statTotal').textContent = stats.totalRecords.toLocaleString();
+        document.getElementById('statToday').textContent = stats.recordsToday.toLocaleString();
+        document.getElementById('statAvg').textContent = stats.dailyAvg.toLocaleString();
+        
+        deviceStats.style.display = 'block';
+    } catch (err) {
+        console.error('Failed to load stats', err);
+    }
+}
+
 deviceSelect.addEventListener('change', async () => {
     const deviceId = deviceSelect.value;
     
@@ -42,19 +64,7 @@ deviceSelect.addEventListener('change', async () => {
         controlLink.href = `control.html?deviceId=${deviceId}`;
         managerActions.style.display = 'block';
 
-        try {
-            const res = await fetch(`/api/device/${deviceId}/stats`);
-            const stats = await res.json();
-            
-            document.getElementById('statLastSeen').textContent = stats.lastSeen ? new Date(stats.lastSeen).toLocaleString() : 'Never';
-            document.getElementById('statTotal').textContent = stats.totalRecords.toLocaleString();
-            document.getElementById('statToday').textContent = stats.recordsToday.toLocaleString();
-            document.getElementById('statAvg').textContent = stats.dailyAvg.toLocaleString();
-            
-            deviceStats.style.display = 'block';
-        } catch (err) {
-            console.error('Failed to load stats', err);
-        }
+        await updateStats(deviceId);
     } else {
         managerActions.style.display = 'none';
         deviceStats.style.display = 'none';
@@ -62,3 +72,9 @@ deviceSelect.addEventListener('change', async () => {
 });
 
 loadDevices();
+
+setInterval(() => {
+    if (deviceSelect.value) {
+        updateStats(deviceSelect.value);
+    }
+}, 60000);
