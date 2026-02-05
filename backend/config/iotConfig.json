@@ -2,8 +2,13 @@
     "devices": {
         "woodshed_01": {
             "data": {
-                "DeviceControl": [
-                    "isOn"
+                "RelayControl": [
+                    "isOn",
+                    "percentage",
+                    "frequency",
+                    "autoOffTimer",
+                    "autoOffRemaining",
+                    "fadeDuration"
                 ],
                 "TemperatureReader": [
                     "tempC"
@@ -29,10 +34,14 @@
                 "setUrl": "string"
             }
         },
-        "DeviceControl": {
+        "RelayControl": {
             "supportedCommands": {
                 "setState": "boolean",
-                "toggleState": "boolean"
+                "toggleState": "boolean",
+                "setPercentage": "integer",
+                "setFrequency": "integer",
+                "setAutoOffTimer": "integer",
+                "setFadeDuration": "integer"
             }
         },
         "SystemMonitor": {

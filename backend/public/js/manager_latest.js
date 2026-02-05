@@ -126,15 +126,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const hasMultipleSubdevicesOfThisType = Object.keys(subdevices).length > 1;
 
+                    if (hasMultipleSubdevicesOfThisType) {
+                        const subHeaderRow = document.createElement('tr');
+                        const subHeaderCell = document.createElement('td');
+                        subHeaderCell.colSpan = 2;
+                        subHeaderCell.textContent = formatKey(subdeviceName);
+                        subHeaderCell.style.fontWeight = '600';
+                        subHeaderCell.style.color = '#444';
+                        subHeaderCell.style.padding = '6px 6px 6px 20px';
+                        subHeaderCell.style.backgroundColor = '#f9f9f9';
+                        subHeaderRow.appendChild(subHeaderCell);
+                        latestDataBody.appendChild(subHeaderRow);
+                    }
+
                     // Iterate through each metric for the subdevice instance
                     Object.keys(metrics).sort().forEach(metricKey => {
                         const row = document.createElement('tr');
                         row.style.borderBottom = '1px solid #eee';
 
                         const keyCell = document.createElement('td');
-                        const label = hasMultipleSubdevicesOfThisType ? `${formatKey(subdeviceName)}: ${formatKey(metricKey)}` : formatKey(metricKey);
-                        keyCell.textContent = label;
-                        keyCell.style.padding = '8px 4px 8px 20px'; // Indent sub-keys
+                        keyCell.textContent = formatKey(metricKey);
+                        keyCell.style.padding = hasMultipleSubdevicesOfThisType ? '8px 4px 8px 35px' : '8px 4px 8px 20px';
                         keyCell.style.fontWeight = 'normal';
                         keyCell.style.color = '#555';
                         keyCell.style.width = '40%';
@@ -218,8 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (key === 'uptime') return formatDuration(value);
-
-        if (key.toLowerCase().includes('time') || key.toLowerCase().includes('date')) return new Date(value).toLocaleString();
         if (typeof value === 'number') return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
         return typeof value === 'object' ? JSON.stringify(value) : String(value);
     }
