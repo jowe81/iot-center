@@ -73,7 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
             row.style.borderBottom = '1px solid #eee';
 
             const keyCell = document.createElement('td');
-            keyCell.textContent = formatKey(key);
+            const link = document.createElement('a');
+            link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(key)}`;
+            link.textContent = formatKey(key);
+            link.style.textDecoration = 'none';
+            link.style.color = 'inherit';
+            link.onmouseenter = () => link.style.textDecoration = 'underline';
+            link.onmouseleave = () => link.style.textDecoration = 'none';
+            keyCell.appendChild(link);
             keyCell.style.padding = '8px 4px';
             keyCell.style.fontWeight = 'bold';
             keyCell.style.color = '#555';
@@ -145,7 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.style.borderBottom = '1px solid #eee';
 
                         const keyCell = document.createElement('td');
-                        keyCell.textContent = formatKey(metricKey);
+                        const fullKey = `data.${subdeviceType}.${subdeviceName}.${metricKey}`;
+                        const link = document.createElement('a');
+                        link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(fullKey)}`;
+                        link.textContent = formatKey(metricKey);
+                        link.style.textDecoration = 'none';
+                        link.style.color = 'inherit';
+                        link.onmouseenter = () => link.style.textDecoration = 'underline';
+                        link.onmouseleave = () => link.style.textDecoration = 'none';
+                        keyCell.appendChild(link);
                         keyCell.style.padding = hasMultipleSubdevicesOfThisType ? '8px 4px 8px 35px' : '8px 4px 8px 20px';
                         keyCell.style.fontWeight = 'normal';
                         keyCell.style.color = '#555';
