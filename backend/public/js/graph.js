@@ -79,7 +79,7 @@ async function loadDevices() {
                 updateChart();
             }
 
-            deviceSelect.parentElement.style.display = 'none';
+            deviceSelect.parentElement.classList.add('hidden');
             if (backLink) backLink.href = `manager.html?deviceId=${deviceId}`;
         }
     } catch (err) {

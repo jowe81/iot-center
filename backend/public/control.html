@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Device Control</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/control.css">
 </head>
 <body>
     <div class="container">
@@ -38,20 +39,20 @@
                     </select>
                 </div>
 
-                <div class="control-group" id="argContainer" style="display:none;">
+                <div class="control-group hidden" id="argContainer">
                     <label for="argSelect">Argument:</label>
                     <select id="argSelect">
                         <option value="true">True</option>
                         <option value="false">False</option>
                     </select>
-                    <input type="number" id="argInputInt" style="display:none;">
-                    <input type="text" id="argInputString" style="display:none;">
+                    <input type="number" id="argInputInt" class="hidden">
+                    <input type="text" id="argInputString" class="hidden">
                 </div>
 
                 <div class="control-group">
                     <button id="sendCommandBtn" disabled>Send Command</button>
                 </div>
-                <div id="message" style="margin-top: 10px;"></div>
+                <div id="message"></div>
             </div>
         </div>
     </div>

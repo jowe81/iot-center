@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Device Manager</title>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        body {
-            font-size: 0.9em;
-        }
-    </style>
+    <link rel="stylesheet" href="css/manager.css">
+    <link rel="stylesheet" href="css/manager_latest.css">
 </head>
 <body>
     <div class="container">
@@ -27,7 +24,7 @@
             </div>
         </div>
 
-        <div id="deviceStats" class="stats-container" style="display:none;">
+        <div id="deviceStats" class="stats-container hidden">
             <div class="stats-grid">
                 <div><strong>Last Seen:</strong><br><span id="statLastSeen">-</span></div>
                 <div><strong>Total Records:</strong><br><span id="statTotal">-</span></div>
@@ -36,18 +33,18 @@
             </div>
         </div>
 
-        <div id="latestDataSection" style="display:none; margin-top: 20px;">
+        <div id="latestDataSection" class="hidden">
             <div class="stats-container">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0;">Latest Data Received</h3>
+                <div class="latest-data-header">
+                    <h3>Latest Data Received</h3>
                 </div>
-                <table style="width: 100%; border-collapse: collapse;">
+                <table>
                     <tbody id="latestDataBody"></tbody>
                 </table>
             </div>
         </div>
 
-        <div id="managerActions" style="display:none; margin-top: 20px;">
+        <div id="managerActions" class="hidden">
             <nav class="main-nav">
                 <ul>
                     <li><a id="monitorLink" href="#">Data Graph</a></li>

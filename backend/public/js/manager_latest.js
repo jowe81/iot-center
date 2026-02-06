@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderData(record, deviceId) {
+        const sendIcon = '➤';
         latestDataBody.innerHTML = '';
 
         const excludeFields = ['_id', 'deviceId', '__v', 'updatedAt', 'data'];
@@ -70,31 +71,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const row = document.createElement('tr');
-            row.style.borderBottom = '1px solid #eee';
+            row.className = 'data-row';
 
             const keyCell = document.createElement('td');
+            keyCell.className = 'key-cell top-level';
             const link = document.createElement('a');
             link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(key)}`;
             link.textContent = formatKey(key);
-            link.style.textDecoration = 'none';
-            link.style.color = 'inherit';
-            link.onmouseenter = () => link.style.textDecoration = 'underline';
-            link.onmouseleave = () => link.style.textDecoration = 'none';
             keyCell.appendChild(link);
-            keyCell.style.padding = '8px 4px';
-            keyCell.style.fontWeight = 'bold';
-            keyCell.style.color = '#555';
-            keyCell.style.width = '40%';
 
             const valueCell = document.createElement('td');
+            valueCell.className = 'value-cell';
             const val = formatValue(key, record[key]);
             if (val instanceof Node) valueCell.appendChild(val);
             else valueCell.textContent = val;
-            valueCell.style.padding = '8px 4px';
-            valueCell.style.textAlign = 'right';
+
+            const actionCell = document.createElement('td');
+            actionCell.className = 'action-cell';
 
             row.appendChild(keyCell);
             row.appendChild(valueCell);
+            row.appendChild(actionCell);
             latestDataBody.appendChild(row);
         });
 
@@ -102,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (record.data && typeof record.data === 'object') {
             if (latestDataBody.children.length > 0) {
                 const separatorRow = document.createElement('tr');
-                separatorRow.innerHTML = '<td colspan="2" style="padding-top: 10px;"></td>';
+                separatorRow.innerHTML = '<td colspan="3" class="separator-cell"></td>';
                 latestDataBody.appendChild(separatorRow);
             }
 
@@ -115,12 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Subdevice header
                 const headerRow = document.createElement('tr');
                 const headerCell = document.createElement('td');
-                headerCell.colSpan = 2;
+                headerCell.className = 'header-cell';
+                headerCell.colSpan = 3;
                 headerCell.textContent = formatKey(subdeviceType);
-                headerCell.style.fontWeight = 'bold';
-                headerCell.style.backgroundColor = '#f2f2f2';
-                headerCell.style.padding = '5px';
-                headerCell.style.marginTop = '10px';
                 headerRow.appendChild(headerCell);
                 latestDataBody.appendChild(headerRow);
 
@@ -136,12 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (hasMultipleSubdevicesOfThisType) {
                         const subHeaderRow = document.createElement('tr');
                         const subHeaderCell = document.createElement('td');
-                        subHeaderCell.colSpan = 2;
+                        subHeaderCell.className = 'subheader-cell';
+                        subHeaderCell.colSpan = 3;
                         subHeaderCell.textContent = formatKey(subdeviceName);
-                        subHeaderCell.style.fontWeight = '600';
-                        subHeaderCell.style.color = '#444';
-                        subHeaderCell.style.padding = '6px 6px 6px 20px';
-                        subHeaderCell.style.backgroundColor = '#f9f9f9';
                         subHeaderRow.appendChild(subHeaderCell);
                         latestDataBody.appendChild(subHeaderRow);
                     }
@@ -149,36 +140,116 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Iterate through each metric for the subdevice instance
                     Object.keys(metrics).sort().forEach(metricKey => {
                         const row = document.createElement('tr');
-                        row.style.borderBottom = '1px solid #eee';
+                        row.className = 'data-row';
 
                         const keyCell = document.createElement('td');
+                        keyCell.className = 'key-cell';
+                        if (hasMultipleSubdevicesOfThisType) {
+                            keyCell.classList.add('deeply-indented-key-cell');
+                        } else {
+                            keyCell.classList.add('indented-key-cell');
+                        }
                         const fullKey = `data.${subdeviceType}.${subdeviceName}.${metricKey}`;
                         const link = document.createElement('a');
                         link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(fullKey)}`;
                         link.textContent = formatKey(metricKey);
-                        link.style.textDecoration = 'none';
-                        link.style.color = 'inherit';
-                        link.onmouseenter = () => link.style.textDecoration = 'underline';
-                        link.onmouseleave = () => link.style.textDecoration = 'none';
                         keyCell.appendChild(link);
-                        keyCell.style.padding = hasMultipleSubdevicesOfThisType ? '8px 4px 8px 35px' : '8px 4px 8px 20px';
-                        keyCell.style.fontWeight = 'normal';
-                        keyCell.style.color = '#555';
-                        keyCell.style.width = '40%';
 
                         const valueCell = document.createElement('td');
-                        const val = formatValue(metricKey, metrics[metricKey], {
-                            deviceId,
-                            subDeviceName: subdeviceName,
-                            subDeviceType: subdeviceType
-                        });
-                        if (val instanceof Node) valueCell.appendChild(val);
-                        else valueCell.textContent = val;
-                        valueCell.style.padding = '8px 4px';
-                        valueCell.style.textAlign = 'right';
+                        valueCell.className = 'value-cell';
+                        const actionCell = document.createElement('td');
+                        actionCell.className = 'action-cell';
+
+                        let commandName = 'set' + metricKey.charAt(0).toUpperCase() + metricKey.slice(1);
+                        if (commandDefinitions[subdeviceType] && commandDefinitions[subdeviceType].keysToCommandsMap && commandDefinitions[subdeviceType].keysToCommandsMap[metricKey]) {
+                            commandName = commandDefinitions[subdeviceType].keysToCommandsMap[metricKey];
+                        }
+
+                        if (commandDefinitions[subdeviceType] &&
+                            commandDefinitions[subdeviceType].supportedCommands &&
+                            commandDefinitions[subdeviceType].supportedCommands[commandName]) {
+
+                            const argType = commandDefinitions[subdeviceType].supportedCommands[commandName];
+                            // const container = document.createElement('div');
+                            // container.className = 'command-container';
+
+                            let input;
+                            if (argType === 'boolean') {
+                                input = document.createElement('select');
+                                const optTrue = new Option('True', 'true');
+                                const optFalse = new Option('False', 'false');
+                                input.add(optTrue);
+                                input.add(optFalse);
+                                //if (metrics[metricKey] === false) optFalse.selected = true;
+                                if (metrics[metricKey] === false) {
+                                    optFalse.selected = true;
+                                } else {
+                                    optTrue.selected = true;
+                                }
+                            } else {
+                                input = document.createElement('input');
+                                input.type = argType === 'integer' ? 'number' : 'text';
+                                if (metrics[metricKey] !== undefined && metrics[metricKey] !== null) {
+                                    input.value = metrics[metricKey];
+                                }
+                            }
+                            valueCell.appendChild(input);
+
+                            const btn = document.createElement('button');
+                            btn.className = 'send-command-btn';
+                            btn.title = 'Send Command';
+                            btn.innerHTML = sendIcon;
+                            btn.onclick = () => {
+                                let val = input.value;
+                                if (argType === 'integer') val = parseInt(val, 10);
+                                if (argType === 'boolean') val = val === 'true';
+
+                                btn.disabled = true;
+                                btn.textContent = '...';
+                                fetch('/api/commands/queue', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        deviceId: deviceId,
+                                        subDevice: subdeviceName,
+                                        command: commandName,
+                                        argument: val
+                                    })
+                                }).then(res => {
+                                    if (res.ok) {
+                                        btn.textContent = '✓';
+                                        setTimeout(() => {
+                                            btn.disabled = false;
+                                            btn.innerHTML = sendIcon;
+                                        }, 1500);
+                                    } else {
+                                        btn.textContent = '✗';
+                                        btn.disabled = false;
+                                    }
+                                }).catch(err => {
+                                    console.error(err);
+                                    btn.textContent = '✗';
+                                    btn.disabled = false;
+                                });
+                            };
+
+                            actionCell.appendChild(btn);
+                        } else {
+                            const val = formatValue(metricKey, metrics[metricKey], {
+                                deviceId,
+                                subDeviceName: subdeviceName,
+                                subDeviceType: subdeviceType
+                            });
+                            if (val instanceof Node) {
+                                valueCell.appendChild(val);
+                            } else {
+                                valueCell.textContent = val;
+                            }
+                        }
 
                         row.appendChild(keyCell);
                         row.appendChild(valueCell);
+                        row.appendChild(actionCell);
                         latestDataBody.appendChild(row);
                     });
                 });
@@ -195,8 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (key === 'isOn' && typeof value === 'boolean') {
             const span = document.createElement('span');
-            span.style.color = value ? '#28a745' : '#dc3545';
-            span.style.fontSize = '1.2em';
+            span.classList.add('status-indicator', value ? 'status-on' : 'status-off');
             span.textContent = '●';
 
             let uniqueKey = null;
@@ -206,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pendingToggles.get(uniqueKey) === value) {
                         pendingToggles.delete(uniqueKey);
                     } else {
-                        span.style.opacity = '0.5';
+                        span.classList.add('pending');
                     }
                 }
             }
@@ -214,11 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (context && commandDefinitions[context.subDeviceType]) {
                 const cmds = commandDefinitions[context.subDeviceType].supportedCommands;
                 if (cmds && cmds.hasOwnProperty('toggleState')) {
-                    span.style.cursor = 'pointer';
+                    span.classList.add('toggleable');
                     span.title = 'Click to toggle';
                     span.onclick = async (e) => {
                         e.stopPropagation();
-                        span.style.opacity = '0.5';
+                        span.classList.add('pending');
                         if (uniqueKey) pendingToggles.set(uniqueKey, !value);
                         try {
                             const argType = cmds.toggleState;
@@ -235,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         } catch (err) {
                             console.error(err);
-                            span.style.opacity = '1';
+                            span.classList.remove('pending');
                             if (uniqueKey) pendingToggles.delete(uniqueKey);
                         }
                     };

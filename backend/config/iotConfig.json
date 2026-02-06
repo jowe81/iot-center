@@ -18,7 +18,24 @@
                 ],
                 "SystemMonitor": [
                     "largestBlock",
-                    "uptime"
+                    "uptime",
+                    "loopDelay"
+                ],
+                "DataExchanger": [
+                    "interval",
+                    "trigger"
+                ]
+            }
+        },
+        "recroom_01": {
+            "data": {
+                "TemperatureReader": [
+                    "tempC"
+                ],
+                "SystemMonitor": [
+                    "largestBlock",
+                    "uptime",
+                    "loopDelay"
                 ],
                 "DataExchanger": [
                     "interval",
@@ -42,11 +59,15 @@
                 "setFrequency": "integer",
                 "setAutoOffTimer": "integer",
                 "setFadeDuration": "integer"
+            },
+            "keysToCommandsMap": {
+                
             }
         },
         "SystemMonitor": {
             "supportedCommands": {
-                "reboot": "boolean"
+                "reboot": "boolean",
+                "setLoopDelay": "integer"
             }
         }
     }

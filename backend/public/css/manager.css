@@ -1,0 +1,26 @@
+/* Styles for manager.js controlled elements */
+body {
+    font-size: 0.9em;
+}
+
+#deviceStats,
+#latestDataSection,
+#managerActions {
+    margin-top: 20px;
+}
+
+.latest-data-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.latest-data-header h3 {
+    margin: 0;
+}
+
+#latestDataSection table {
+    width: 100%;
+    border-collapse: collapse;
+}

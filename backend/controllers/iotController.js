@@ -75,11 +75,17 @@ export const processData = async (req, res) => {
         if (pendingCommands.length > 0) {
             const commands = {};
             for (const cmd of pendingCommands) {
-                Object.assign(commands, cmd.command);
+                for (const [subDevice, subCmds] of Object.entries(cmd.command)) {
+                    if (!commands[subDevice]) {
+                        commands[subDevice] = {};
+                    }
+                    Object.assign(commands[subDevice], subCmds);
+                }
                 // Mark as sent
                 await commandCollection.updateOne({ _id: cmd._id }, { $set: { status: 'sent', sentAt: new Date() } });
             }
             Object.assign(responsePayload, commands);
+            log.info(`assembled commands:`, responsePayload);
             log.info(`Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
         }
 
