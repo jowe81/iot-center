@@ -11,5 +11,6 @@ router.get('/device/:deviceId/controls', frontendController.getControllableDevic
 router.get('/device/:deviceId/latest', frontendController.getLatestData);
 router.get('/commands/definitions', frontendController.getCommandDefinitions);
 router.post('/commands/queue', frontendController.queueCommand);
+router.get('/device/:deviceId/config', frontendController.getDeviceConfig);
 
 export default router;

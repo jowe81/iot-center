@@ -2,45 +2,51 @@
     "devices": {
         "woodshed_01": {
             "data": {
-                "RelayControl": [
-                    "isOn",
-                    "percentage",
-                    "frequency",
-                    "autoOffTimer",
-                    "autoOffRemaining",
-                    "fadeDuration"
-                ],
-                "TemperatureReader": [
-                    "tempC"
-                ],
-                "BatteryMonitor": [
-                    "voltage"
-                ],
-                "SystemMonitor": [
-                    "largestBlock",
-                    "uptime",
-                    "loopDelay"
-                ],
-                "DataExchanger": [
-                    "interval",
-                    "trigger"
-                ]
+                "RelayControl": {
+                    "isOn": true,
+                    "percentage": true,
+                    "frequency": true,
+                    "autoOffTimer": true,
+                    "autoOffRemaining": true,
+                    "fadeDuration": true
+                },
+                "TemperatureReader": {
+                    "tempC": true
+                },
+                "BatteryMonitor": {
+                    "voltage": {
+                        "save": true,
+                        "targetBoundaries": {
+                            "low": 12.2,
+                            "high": 12.8
+                        }
+                    }
+                },
+                "SystemMonitor": {
+                    "largestBlock": true,
+                    "uptime": true,
+                    "loopDelay": true
+                },
+                "DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                }
             }
         },
         "recroom_01": {
             "data": {
-                "TemperatureReader": [
-                    "tempC"
-                ],
-                "SystemMonitor": [
-                    "largestBlock",
-                    "uptime",
-                    "loopDelay"
-                ],
-                "DataExchanger": [
-                    "interval",
-                    "trigger"
-                ]
+                "TemperatureReader": {
+                    "tempC": true
+                },
+                "SystemMonitor": {
+                    "largestBlock": true,
+                    "uptime": true,
+                    "loopDelay": true
+                },
+                "DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                }
             }
         }
     },

@@ -10,6 +10,7 @@ const headerTitle = document.querySelector('header h1');
 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#767676'];
 
 let chart;
+let currentDeviceConfig = {};
 
 // Initialize Chart
 function initChart() {
@@ -95,8 +96,12 @@ async function loadKeys(deviceId) {
     if (!deviceId) return;
 
     try {
-        const res = await fetch(`/api/device/${deviceId}/keys`);
-        const keys = await res.json();
+        const [keysRes, configRes] = await Promise.all([
+            fetch(`/api/device/${deviceId}/keys`),
+            fetch(`/api/device/${deviceId}/config`)
+        ]);
+        const keys = await keysRes.json();
+        currentDeviceConfig = await configRes.json();
         
         keys.sort((a, b) => {
             const labelA = a.replace(/^data\./, '');
@@ -120,7 +125,7 @@ async function loadKeys(deviceId) {
 async function updateChart() {
     const deviceId = deviceSelect.value;
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
-
+    console.log(selectedOptions)
     // Update URL parameters
     const params = new URLSearchParams(window.location.search);
     if (deviceId) params.set('deviceId', deviceId);
@@ -151,16 +156,48 @@ async function updateChart() {
         if (interpolation === 'smooth') tension = 0.4;
         if (interpolation === 'stepped') stepped = true;
 
-        chart.data.datasets = selectedOptions.map((field, index) => ({
-            label: field,
-            data: dataMap[field],
-            borderColor: colors[index % colors.length],
-            backgroundColor: colors[index % colors.length],
-            tension: tension,
-            stepped: stepped,
-            pointRadius: 0,
-            borderWidth: 2
-        }));
+        chart.data.datasets = selectedOptions.flatMap((field, index) => {
+            const datasets = [{
+                label: field,
+                data: dataMap[field],
+                borderColor: colors[index % colors.length],
+                backgroundColor: colors[index % colors.length],
+                tension: tension,
+                stepped: stepped,
+                pointRadius: 0,
+                borderWidth: 2
+            }];
+
+            // Check for target boundaries
+            const parts = field.split('.');
+            if (parts.length >= 3 && parts[0] === 'data') {
+                const type = parts[1];
+                const key = parts[3];
+                
+                const fieldConfig = currentDeviceConfig[type]?.[key];
+                if (fieldConfig && fieldConfig.targetBoundaries && dataMap[field] && dataMap[field].length > 0) {
+                    const { low, high } = fieldConfig.targetBoundaries;
+                    const startTime = dataMap[field][0].x;
+                    const endTime = dataMap[field][dataMap[field].length - 1].x;
+                    const boundaryStyle = {
+                        borderColor: 'red',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        borderWidth: 1,
+                        fill: false,
+                        tension: 0
+                    };
+
+                    if (low !== undefined) {
+                        datasets.push({ ...boundaryStyle, label: `${field} Low`, data: [{x: startTime, y: low}, {x: endTime, y: low}] });
+                    }
+                    if (high !== undefined) {
+                        datasets.push({ ...boundaryStyle, label: `${field} High`, data: [{x: startTime, y: high}, {x: endTime, y: high}] });
+                    }
+                }
+            }
+            return datasets;
+        });
         chart.update();
     } catch (err) {
         console.error('Failed to load data', err);

@@ -297,3 +297,13 @@ export const getLatestData = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getDeviceConfig = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const deviceSettings = iotConfig.devices?.[deviceId];
+        res.json(deviceSettings?.data || {});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

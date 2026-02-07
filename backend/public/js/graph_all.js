@@ -7,6 +7,7 @@ const ctx = document.getElementById('dataChart').getContext('2d');
 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#767676'];
 
 let chart;
+let deviceConfigs = {};
 
 // Initialize Chart
 function initChart() {
@@ -50,8 +51,12 @@ async function loadAllKeys() {
         const devices = await resDevices.json();
 
         const promises = devices.map(async (deviceId) => {
-            const resKeys = await fetch(`/api/device/${deviceId}/keys`);
+            const [resKeys, resConfig] = await Promise.all([
+                fetch(`/api/device/${deviceId}/keys`),
+                fetch(`/api/device/${deviceId}/config`)
+            ]);
             const keys = await resKeys.json();
+            deviceConfigs[deviceId] = await resConfig.json();
             return keys.map(key => ({ deviceId, key }));
         });
 
@@ -155,6 +160,35 @@ async function updateChart() {
                     pointRadius: 0,
                     borderWidth: 2
                 });
+
+                // Check for target boundaries
+                const parts = field.split('.');
+                if (parts.length === 3 && parts[0] === 'data') {
+                    const type = parts[1];
+                    const key = parts[2];
+                    const fieldConfig = deviceConfigs[deviceId]?.[type]?.[key];
+                    
+                    if (fieldConfig && fieldConfig.targetBoundaries && data && data.length > 0) {
+                        const { low, high } = fieldConfig.targetBoundaries;
+                        const startTime = data[0].x;
+                        const endTime = data[data.length - 1].x;
+                        const boundaryStyle = {
+                            borderColor: 'red',
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            fill: false,
+                            tension: 0
+                        };
+
+                        if (low !== undefined) {
+                            datasets.push({ ...boundaryStyle, label: `${deviceId}: ${field.replace(/^data\./, '')} Low`, data: [{x: startTime, y: low}, {x: endTime, y: low}] });
+                        }
+                        if (high !== undefined) {
+                            datasets.push({ ...boundaryStyle, label: `${deviceId}: ${field.replace(/^data\./, '')} High`, data: [{x: startTime, y: high}, {x: endTime, y: high}] });
+                        }
+                    }
+                }
                 colorIndex++;
             });
         });

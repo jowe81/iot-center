@@ -43,8 +43,13 @@ export const processData = async (req, res) => {
         for (const [key, value] of Object.entries(req.body)) {
             if (value && typeof value === "object" && value.type && deviceConfig[value.type]) {
                 const extracted = {};
-                deviceConfig[value.type].forEach((field) => {
-                    if (value[field] !== undefined) {
+                const typeConfig = deviceConfig[value.type];
+                const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
+
+                fields.forEach((field) => {
+                    const config = Array.isArray(typeConfig) ? true : typeConfig[field];
+                    const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
+                    if (shouldSave && value[field] !== undefined) {
                         extracted[field] = value[field];
                     }
                 });
