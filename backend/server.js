@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './config/db.js';
@@ -6,6 +7,7 @@ import apiRoutes from './routes/api.js';
 import frontendRoutes from './routes/frontend.js';
 import log from './utils/logger.js';
 import { initMqttService } from './controllers/mqttService.js';
+import { initWebSocket } from './controllers/websocketService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,4 +34,7 @@ app.use((req, res, next) => {
 app.use('/automation_api', apiRoutes);
 app.use('/api', frontendRoutes);
 
-app.listen(8101, () => log.info('IoT Service running on port 8101'));
+const server = http.createServer(app);
+initWebSocket(server);
+
+server.listen(8101, () => log.info('IoT Service running on port 8101'));

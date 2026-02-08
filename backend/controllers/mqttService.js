@@ -1,6 +1,5 @@
 import mqtt from 'mqtt';
 import { createRequire } from 'module';
-import { acknowledgeCommands } from './commandService.js';
 import { processDeviceMessage } from '../controllers/iotController.js';
 import log from '../utils/logger.js';
 
@@ -37,24 +36,10 @@ export const initMqttService = () => {
     client.on('connect', () => {
         log.info('MQTT Connected');
         subscribeToDevices(client);
-        const ackTopic = 'device/+/commandAck';
-        log.info(`Subscribing to MQTT topic: ${ackTopic}`);
-        client.subscribe(ackTopic);
     });
 
     client.on('message', async (topic, message) => {
         try {
-            if (topic.endsWith('/commandAck')) {
-                const msgStr = message.toString();
-                log.info(`MQTT ACK received on ${topic}: ${msgStr}`);
-                
-                const ids = await acknowledgeCommands(msgStr);
-                if (ids.length > 0) {
-                    log.info(`[MQTT] Acknowledged commands: ${ids.join(', ')}`);
-                }
-                return;
-            }
-
             const payload = JSON.parse(message.toString());            
             const result = await processDeviceMessage(payload, 'MQTT');
             

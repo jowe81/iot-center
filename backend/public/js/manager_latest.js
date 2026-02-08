@@ -1,13 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const sendIcon = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+
     const deviceSelect = document.getElementById('deviceSelect');
     const latestDataSection = document.getElementById('latestDataSection');
     const latestDataBody = document.getElementById('latestDataBody');
 
     if (!deviceSelect || !latestDataSection || !latestDataBody) return;
 
+    const ws = new WebSocket(`ws://${window.location.host}`);
+
+    ws.onopen = () => {
+        if (deviceSelect.value) updateLatestData(deviceSelect.value);
+    };
+
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'LATEST' && msg.deviceId === deviceSelect.value) {
+            renderData(msg.payload, msg.deviceId);
+            latestDataSection.style.display = 'block';
+        }
+    };
+
     let commandDefinitions = {};
     const pendingToggles = new Map();
-    fetch('/api/commands/definitions').then(r => r.json()).then(d => commandDefinitions = d).catch(console.error);
     const definitionsPromise = fetch('/api/commands/definitions')
         .then(r => r.json())
         .then(d => { commandDefinitions = d; })
@@ -20,61 +35,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        await updateLatestData(deviceId);
+        updateLatestData(deviceId);
     });
 
-    setInterval(() => {
-        if (deviceSelect.value) {
-            updateLatestData(deviceSelect.value);
-        }
-    }, 60000);
-
-    async function updateLatestData(deviceId) {
-        try {
-            await definitionsPromise;
-            
-            // Fetch the latest single record for the device
-            // Assuming the API supports filtering by deviceId and limiting results
-            const response = await fetch(`/api/device/${encodeURIComponent(deviceId)}/latest`);
-            if (!response.ok) throw new Error('Failed to fetch data');
-            
-            const data = await response.json();
-            // Handle if data is returned as an array or single object
-            const latestRecord = Array.isArray(data) ? data[0] : data;
-
-            if (latestRecord) {
-                renderData(latestRecord, deviceId);
-                latestDataSection.style.display = 'block';
-            } else {
-                latestDataSection.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error fetching latest data:', error);
-            latestDataSection.style.display = 'none';
+    function updateLatestData(deviceId) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'GET_LATEST', deviceId }));
         }
     }
 
-    function renderData(record, deviceId) {
-        const sendIcon = '➤';
+    async function renderData(record, deviceId) {
+        if (!record) return;
+        await definitionsPromise;
+
         latestDataBody.innerHTML = '';
 
-        const excludeFields = ['_id', 'deviceId', '__v', 'updatedAt', 'data'];
-
-        // Display top-level fields first
-        Object.keys(record).sort((a, b) => {
-            if (a === 'receivedAt' || a === 'timestamp' || a === 'createdAt') return -1;
-            if (b === 'receivedAt' || b === 'timestamp' || b === 'createdAt') return 1;
-            return a.localeCompare(b);
-        }).forEach(key => {
-            if (excludeFields.includes(key) || (typeof record[key] === 'object' && record[key] !== null)) {
-                return;
-            }
+        // Top level keys
+        Object.keys(record).sort().forEach(key => {
+            if (['data', '_id', 'deviceId', 'receivedAt'].includes(key)) return;
 
             const row = document.createElement('tr');
             row.className = 'data-row';
 
             const keyCell = document.createElement('td');
-            keyCell.className = 'key-cell top-level';
+            keyCell.className = 'key-cell';
             const link = document.createElement('a');
             link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(key)}`;
             link.textContent = formatKey(key);

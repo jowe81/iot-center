@@ -26,21 +26,20 @@ export const getDevices = async (req, res) => {
     }
 };
 
-export const getDeviceStats = async (req, res) => {
+export const fetchDeviceStats = async (deviceId) => {
     try {
-        const { deviceId } = req.params;
         const db = getDb();
         const collection = db.collection(`device_${deviceId}`);
 
         const totalRecords = await collection.countDocuments();
         
         if (totalRecords === 0) {
-            return res.json({
+            return {
                 lastSeen: null,
                 totalRecords: 0,
                 recordsToday: 0,
                 dailyAvg: 0
-            });
+            };
         }
 
         const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1, protocol: 1 } });
@@ -62,13 +61,22 @@ export const getDeviceStats = async (req, res) => {
             dailyAvg = Math.round(totalRecords / Math.max(1, daysDiff));
         }
 
-        res.json({
+        return {
             lastSeen: lastDoc ? lastDoc.receivedAt : null,
             lastProtocol: lastDoc ? lastDoc.protocol : null,
             totalRecords,
             recordsToday,
             dailyAvg
-        });
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const getDeviceStats = async (req, res) => {
+    try {
+        const stats = await fetchDeviceStats(req.params.deviceId);
+        res.json(stats);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -178,10 +186,8 @@ export const getDeviceKeys = async (req, res) => {
     }
 };
 
-export const getDeviceData = async (req, res) => {
+export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accuracy }) => {
     try {
-        const { deviceId } = req.params;
-        const { field, fields, timeframe, accuracy } = req.query;
         
         // Support 'fields' (comma separated) or 'field' (legacy/single)
         let fieldsToFetch = [];
@@ -190,7 +196,7 @@ export const getDeviceData = async (req, res) => {
         } else if (field) {
             fieldsToFetch = [field];
         } else {
-            return res.status(400).json({ error: 'Fields parameter is required' });
+            throw new Error('Fields parameter is required');
         }
 
         const db = getDb();
@@ -265,6 +271,15 @@ export const getDeviceData = async (req, res) => {
             }).filter(point => point.y !== null).reverse(); // Reverse to chronological order
         });
 
+        return result;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const getDeviceData = async (req, res) => {
+    try {
+        const result = await fetchDeviceData(req.params.deviceId, req.query);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -296,13 +311,21 @@ export const getDeviceStatus = async (req, res) => {
     }
 };
 
-export const getLatestData = async (req, res) => {
+export const fetchLatestData = async (deviceId) => {
     try {
-        const { deviceId } = req.params;
         const db = getDb();
         const collection = db.collection(`device_${deviceId}`);
 
         const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+        return latestDoc;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const getLatestData = async (req, res) => {
+    try {
+        const latestDoc = await fetchLatestData(req.params.deviceId);
         res.json(latestDoc);
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -4,6 +4,22 @@ const monitorLink = document.getElementById('monitorLink');
 const controlLink = document.getElementById('controlLink');
 const deviceStats = document.getElementById('deviceStats');
 
+let lastStats = null;
+const ws = new WebSocket(`ws://${window.location.host}`);
+
+ws.onopen = () => {
+    if (deviceSelect.value) {
+        requestStats(deviceSelect.value);
+    }
+};
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'STATS' && msg.deviceId === deviceSelect.value) {
+        renderStats(msg.payload);
+    }
+};
+
 async function loadDevices() {
     try {
         const res = await fetch('/api/devices');
@@ -27,25 +43,29 @@ async function loadDevices() {
     }
 }
 
-async function updateStats(deviceId) {
-    try {
-        const res = await fetch(`/api/device/${deviceId}/stats`);
-        const stats = await res.json();
-        
-        if (stats.lastSeen) {
-            const diff = Date.now() - new Date(stats.lastSeen).getTime();
-            document.getElementById('statLastSeen').textContent = `${formatDuration(diff)} ago`;
-            document.getElementById('statLastSeen').title = new Date(stats.lastSeen).toLocaleString();
-        } else {
-            document.getElementById('statLastSeen').textContent = 'Never';
-        }
+function requestStats(deviceId) {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'GET_STATS', deviceId }));
+    }
+}
+
+function renderStats(stats) {
+        lastStats = stats;
+        updateLastSeen();
         document.getElementById('statTotal').textContent = stats.totalRecords.toLocaleString();
         document.getElementById('statToday').textContent = stats.recordsToday.toLocaleString();
         document.getElementById('statAvg').textContent = stats.dailyAvg.toLocaleString();
         
         deviceStats.style.display = 'block';
-    } catch (err) {
-        console.error('Failed to load stats', err);
+}
+
+function updateLastSeen() {
+    if (lastStats && lastStats.lastSeen) {
+        const diff = Date.now() - new Date(lastStats.lastSeen).getTime();
+        document.getElementById('statLastSeen').textContent = `${formatDuration(diff)} ago`;
+        document.getElementById('statLastSeen').title = new Date(lastStats.lastSeen).toLocaleString();
+    } else {
+        document.getElementById('statLastSeen').textContent = 'Never';
     }
 }
 
@@ -64,7 +84,7 @@ deviceSelect.addEventListener('change', async () => {
         controlLink.href = `control.html?deviceId=${deviceId}`;
         managerActions.style.display = 'block';
 
-        await updateStats(deviceId);
+        requestStats(deviceId);
     } else {
         managerActions.style.display = 'none';
         deviceStats.style.display = 'none';
@@ -72,9 +92,4 @@ deviceSelect.addEventListener('change', async () => {
 });
 
 loadDevices();
-
-setInterval(() => {
-    if (deviceSelect.value) {
-        updateStats(deviceSelect.value);
-    }
-}, 60000);
+setInterval(updateLastSeen, 1000);

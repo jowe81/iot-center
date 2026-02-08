@@ -9,6 +9,21 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 let chart;
 let deviceConfigs = {};
 
+const ws = new WebSocket(`ws://${window.location.host}`);
+const chartDataCache = {};
+
+ws.onopen = () => {
+    updateChart();
+};
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'GRAPH') {
+        chartDataCache[msg.deviceId] = msg.payload;
+        renderChart();
+    }
+};
+
 // Initialize Chart
 function initChart() {
     chart = new Chart(ctx, {
@@ -101,7 +116,7 @@ async function loadAllKeys() {
 }
 
 // Fetch Data and Update Chart
-async function updateChart() {
+function updateChart() {
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
 
     // Update URL parameters
@@ -123,7 +138,6 @@ async function updateChart() {
     const accuracy = accuracySelect.value;
     const interpolation = interpolationSelect.value;
 
-    try {
         // Group requests by deviceId
         const requests = {};
         selectedOptions.forEach(value => {
@@ -132,14 +146,19 @@ async function updateChart() {
             requests[deviceId].push(key);
         });
 
-        const promises = Object.entries(requests).map(async ([deviceId, fields]) => {
-            const fieldsParam = fields.join(',');
-            const res = await fetch(`/api/device/${deviceId}/data?fields=${fieldsParam}&timeframe=${timeframe}&accuracy=${accuracy}`);
-            const dataMap = await res.json();
-            return { deviceId, dataMap };
+        Object.entries(requests).forEach(([deviceId, fields]) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'GET_GRAPH',
+                    deviceId,
+                    options: { fields: fields.join(','), timeframe, accuracy, interpolation }
+                }));
+            }
         });
+}
 
-        const results = await Promise.all(promises);
+function renderChart() {
+        const interpolation = interpolationSelect.value;
 
         let tension = 0;
         let stepped = false;
@@ -149,8 +168,20 @@ async function updateChart() {
         const datasets = [];
         let colorIndex = 0;
 
-        results.forEach(({ deviceId, dataMap }) => {
+        const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
+        const requests = {};
+        selectedOptions.forEach(value => {
+            const [deviceId, key] = value.split(':');
+            if (!requests[deviceId]) requests[deviceId] = [];
+            requests[deviceId].push(key);
+        });
+
+        Object.entries(requests).forEach(([deviceId, keys]) => {
+            const dataMap = chartDataCache[deviceId];
+            if (!dataMap) return;
+
             Object.entries(dataMap).forEach(([field, data]) => {
+                if (!keys.includes(field)) return;
                 datasets.push({
                     label: `${deviceId}: ${field.replace(/^data\./, '')}`,
                     data: data,
@@ -196,13 +227,9 @@ async function updateChart() {
 
         chart.data.datasets = datasets;
         chart.update();
-    } catch (err) {
-        console.error('Failed to load data', err);
-    }
 }
 
 // Event Listeners
-console.log('Add to ', fieldSelect)
 fieldSelect.addEventListener('change', updateChart);
 timeframeSelect.addEventListener('change', updateChart);
 accuracySelect.addEventListener('change', updateChart);

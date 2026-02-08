@@ -1,5 +1,6 @@
 import { getDb } from '../config/db.js';
 import { ObjectId } from 'mongodb';
+import { broadcast } from './websocketService.js';
 
 export const addCommand = async (deviceId, commandObj) => {
     const db = getDb();
@@ -9,6 +10,7 @@ export const addCommand = async (deviceId, commandObj) => {
         status: 'pending',
         createdAt: new Date()
     });
+    broadcast('COMMAND_UPDATED', { deviceId, commandId: result.insertedId, status: 'pending', command: commandObj });
     return result.insertedId;
 };
 
@@ -18,6 +20,7 @@ export const markCommandAsSent = async (commandId) => {
         { _id: new ObjectId(commandId) },
         { $set: { status: 'sent', sentAt: new Date() } }
     );
+    broadcast('COMMAND_UPDATED', { commandId, status: 'sent' });
 };
 
 export const getPendingCommands = async (deviceId) => {
@@ -49,6 +52,9 @@ export const getPendingCommands = async (deviceId) => {
         { _id: { $in: objectIds } },
         { $set: { status: 'sent', sentAt: new Date() } }
     );
+    objectIds.forEach(id => {
+        broadcast('COMMAND_UPDATED', { commandId: id, status: 'sent' });
+    });
 
     if (commandIds.length > 0) {
         commands._ack = commandIds.join(',');
@@ -86,6 +92,9 @@ export const acknowledgeCommands = async (commandIdsString) => {
             { _id: { $in: objectIds } },
             { $set: { status: 'acknowledged', ackAt: new Date() } }
         );
+        objectIds.forEach(id => {
+            broadcast('COMMAND_UPDATED', { commandId: id, status: 'acknowledged' });
+        });
         if (result.matchedCount > 0) {
             return objectIds.map(id => id.toString());
         }

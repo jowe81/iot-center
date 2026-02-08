@@ -12,6 +12,19 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 let chart;
 let currentDeviceConfig = {};
 
+const ws = new WebSocket(`ws://${window.location.host}`);
+
+ws.onopen = () => {
+    if (deviceSelect.value) updateChart();
+};
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'GRAPH' && msg.deviceId === deviceSelect.value) {
+        renderChartData(msg.payload, msg.options);
+    }
+};
+
 // Initialize Chart
 function initChart() {
     chart = new Chart(ctx, {
@@ -126,7 +139,6 @@ async function loadKeys(deviceId) {
 async function updateChart() {
     const deviceId = deviceSelect.value;
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
-    console.log(selectedOptions)
     // Update URL parameters
     const params = new URLSearchParams(window.location.search);
     if (deviceId) params.set('deviceId', deviceId);
@@ -143,15 +155,24 @@ async function updateChart() {
 
     if (!deviceId || selectedOptions.length === 0) return;
 
-    const timeframe = timeframeSelect.value;
-    const accuracy = accuracySelect.value;
-    const interpolation = interpolationSelect.value;
-    const fieldsParam = selectedOptions.join(',');
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'GET_GRAPH',
+            deviceId,
+            options: {
+                fields: selectedOptions.join(','),
+                timeframe: timeframeSelect.value,
+                accuracy: accuracySelect.value,
+                interpolation: interpolationSelect.value
+            }
+        }));
+    }
+}
 
-    try {
-        const res = await fetch(`/api/device/${deviceId}/data?fields=${fieldsParam}&timeframe=${timeframe}&accuracy=${accuracy}`);
-        const dataMap = await res.json();
-
+function renderChartData(dataMap, options) {
+        const interpolation = options.interpolation || interpolationSelect.value;
+        const selectedOptions = Object.keys(dataMap);
+        
         let tension = 0;
         let stepped = false;
         if (interpolation === 'smooth') tension = 0.4;
@@ -200,9 +221,6 @@ async function updateChart() {
             return datasets;
         });
         chart.update();
-    } catch (err) {
-        console.error('Failed to load data', err);
-    }
 }
 
 // Event Listeners

@@ -2,12 +2,22 @@ import { createRequire } from 'module';
 import { getDb } from "../config/db.js";
 import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
+import { broadcast } from './websocketService.js';
+import { fetchDeviceStats } from './frontendController.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
 
 export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
     try {
+        // Check for acknowledgement in the payload
+        if (data._ack) {
+            const acknowledged = await acknowledgeCommands(data._ack);
+            if (acknowledged.length > 0) {
+                log.info(`[${protocol}] Acknowledged commands: ${acknowledged.join(', ')}`);
+            }
+        }
+
         // Extract deviceId from the first device of type SystemMonitor
         let deviceId;
         for (const value of Object.values(data)) {
@@ -95,6 +105,12 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         }
 
         log.info(`[${protocol}] Data recorded for device: ${deviceId}`);
+        
+        // Broadcast updates via WebSocket
+        broadcast('LATEST', { deviceId, payload: filteredData });
+        const stats = await fetchDeviceStats(deviceId);
+        broadcast('STATS', { deviceId, payload: stats });
+
         return { statusCode: 201, payload: responsePayload, commands, deviceId };
     } catch (error) {
         log.error("Error processing data", error);
@@ -104,12 +120,6 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
 export const processData = async (req, res) => {
     try {
-        if (req.body.requestType === 'commandAck') {
-            const acknowledged = await acknowledgeCommands(req.body._ack);
-            log.info(`[HTTP] Acknowledged commands: ${acknowledged.join(', ')}`);
-            return res.status(200).send({ status: "Acknowledged", acknowledged });
-        }
-
         const result = await processDeviceMessage(req.body, 'HTTP');
         res.status(result.statusCode).send(result.payload);
     } catch (error) {
