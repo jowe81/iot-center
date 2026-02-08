@@ -264,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatValue(key, value, context) {
         if (value === null || value === undefined) return '-';
 
+        if (key === 'protocol' && typeof value === 'string') return value.toUpperCase();
         if (key === 'isOn' && typeof value === 'boolean') {
             const span = document.createElement('span');
             span.classList.add('status-indicator', value ? 'status-on' : 'status-off');

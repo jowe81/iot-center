@@ -25,14 +25,14 @@ async function init() {
         
         devices.forEach(device => {
             const option = document.createElement('option');
-            option.value = device;
-            option.textContent = device;
+            option.value = device.id;
+            option.textContent = device.name;
             deviceSelect.appendChild(option);
         });
 
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('deviceId');
-        if (deviceId && devices.includes(deviceId)) {
+        if (deviceId && devices.some(d => d.id === deviceId)) {
             deviceSelect.value = deviceId;
             await loadSubDevices(deviceId);
             deviceSelect.parentElement.style.display = 'none';

@@ -50,7 +50,8 @@ async function loadAllKeys() {
         const resDevices = await fetch('/api/devices');
         const devices = await resDevices.json();
 
-        const promises = devices.map(async (deviceId) => {
+        const promises = devices.map(async (device) => {
+            const deviceId = device.id;
             const [resKeys, resConfig] = await Promise.all([
                 fetch(`/api/device/${deviceId}/keys`),
                 fetch(`/api/device/${deviceId}/config`)

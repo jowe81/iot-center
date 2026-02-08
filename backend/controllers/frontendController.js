@@ -1,5 +1,7 @@
 import { createRequire } from 'module';
 import { getDb } from '../config/db.js';
+import { sendMqttCommand } from './mqttService.js';
+import { addCommand, markCommandAsSent } from './commandService.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -12,7 +14,11 @@ export const getDevices = async (req, res) => {
         // Filter for those starting with 'device_' and strip the prefix
         const devices = collections
             .filter(c => c.name.startsWith('device_'))
-            .map(c => c.name.replace('device_', ''));
+            .map(c => {
+                const id = c.name.replace('device_', '');
+                const config = iotConfig.devices?.[id];
+                return { id, name: config?.meta?.name || id };
+            });
         
         res.json(devices);
     } catch (error) {
@@ -37,7 +43,7 @@ export const getDeviceStats = async (req, res) => {
             });
         }
 
-        const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1 } });
+        const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1, protocol: 1 } });
         const firstDoc = await collection.findOne({}, { sort: { receivedAt: 1 }, projection: { receivedAt: 1 } });
 
         const now = new Date();
@@ -58,6 +64,7 @@ export const getDeviceStats = async (req, res) => {
 
         res.json({
             lastSeen: lastDoc ? lastDoc.receivedAt : null,
+            lastProtocol: lastDoc ? lastDoc.protocol : null,
             totalRecords,
             recordsToday,
             dailyAvg
@@ -113,7 +120,6 @@ export const queueCommand = async (req, res) => {
         }
 
         const db = getDb();
-        const commandQueue = db.collection('command_queue');
 
         const commandObj = {
             [subDevice]: {
@@ -121,12 +127,17 @@ export const queueCommand = async (req, res) => {
             }
         };
 
-        await commandQueue.insertOne({
-            deviceId,
-            command: commandObj,
-            status: 'pending',
-            createdAt: new Date()
-        });
+        const insertedId = await addCommand(deviceId, commandObj);
+
+        // Check if we should send immediately via MQTT
+        const deviceCollection = db.collection(`device_${deviceId}`);
+        const lastDoc = await deviceCollection.findOne({}, { sort: { receivedAt: -1 }, projection: { protocol: 1 } });
+
+        if (lastDoc && lastDoc.protocol === 'mqtt') {
+            if (sendMqttCommand(deviceId, commandObj, insertedId)) {
+                await markCommandAsSent(insertedId);
+            }
+        }
 
         res.json({ status: "Queued" });
     } catch (error) {

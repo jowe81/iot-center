@@ -5,6 +5,7 @@ import { connectDB } from './config/db.js';
 import apiRoutes from './routes/api.js';
 import frontendRoutes from './routes/frontend.js';
 import log from './utils/logger.js';
+import { initMqttService } from './controllers/mqttService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,7 +13,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Connect to Database
-connectDB();
+connectDB().then(() => {
+  initMqttService();
+});
 
 app.use(express.json());
 

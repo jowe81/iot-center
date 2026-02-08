@@ -1,8 +1,25 @@
 {
+    "system": {
+        "mqtt": {
+            "brokerUrl": "http://server.wnet.wn",
+            "brokerPort": 1883,
+            "username": null,
+            "password": null
+        }
+    },
     "devices": {
         "woodshed_01": {
+            "meta": {
+                "name": "Woodshed"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
             "data": {
-                "RelayControl": {
+                "DeviceControl": {
                     "isOn": true,
                     "percentage": true,
                     "frequency": true,
@@ -34,6 +51,15 @@
             }
         },
         "recroom_01": {
+            "meta": {
+                "name": "Rec Room"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
             "data": {
                 "TemperatureReader": {
                     "tempC": true
@@ -57,7 +83,7 @@
                 "setUrl": "string"
             }
         },
-        "RelayControl": {
+        "DeviceControl": {
             "supportedCommands": {
                 "setState": "boolean",
                 "toggleState": "boolean",

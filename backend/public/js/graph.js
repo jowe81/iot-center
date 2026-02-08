@@ -52,8 +52,8 @@ async function loadDevices() {
         
         devices.forEach(device => {
             const option = document.createElement('option');
-            option.value = device;
-            option.textContent = device;
+            option.value = device.id;
+            option.textContent = device.name;
             deviceSelect.appendChild(option);
         });
 
@@ -65,9 +65,10 @@ async function loadDevices() {
         if (urlParams.has('accuracy')) accuracySelect.value = urlParams.get('accuracy');
         if (urlParams.has('interpolation')) interpolationSelect.value = urlParams.get('interpolation');
 
-        if (deviceId && devices.includes(deviceId)) {
+        if (deviceId && devices.some(d => d.id === deviceId)) {
             deviceSelect.value = deviceId;
-            if (headerTitle) headerTitle.textContent = `Data Graph: ${deviceId}`;
+            const deviceName = devices.find(d => d.id === deviceId)?.name || deviceId;
+            if (headerTitle) headerTitle.textContent = `Data Graph: ${deviceName}`;
             await loadKeys(deviceId);
             
             // Restore selected fields
@@ -206,7 +207,8 @@ async function updateChart() {
 
 // Event Listeners
 deviceSelect.addEventListener('change', (e) => {
-    if (headerTitle) headerTitle.textContent = `Data Graph: ${e.target.value}`;
+    const selectedText = deviceSelect.options[deviceSelect.selectedIndex].textContent;
+    if (headerTitle) headerTitle.textContent = `Data Graph: ${selectedText}`;
     loadKeys(e.target.value);
     if (backLink) backLink.href = `manager.html?deviceId=${e.target.value}`;
 });
