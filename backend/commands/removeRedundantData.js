@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import { connectDB, getDb } from '../config/db.js';
 import log from '../utils/logger.js';
+import { findDataKeys, getValue, isRedundant } from '../utils/dataUtils.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -42,17 +43,7 @@ async function run() {
     // Also scan recent documents to find keys not in config
     const recentDocs = await collection.find().sort({ receivedAt: -1 }).limit(50).toArray();
     recentDocs.forEach(doc => {
-        const extract = (obj, prefix = '') => {
-            for (const key in obj) {
-                if (key === 'receivedAt' || key === '_id' || key === 'deviceId' || key === 'protocol') continue;
-                if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-                    extract(obj[key], prefix + key + '.');
-                } else {
-                    keys.add(prefix + key);
-                }
-            }
-        };
-        extract(doc);
+        findDataKeys(doc).forEach(k => keys.add(k));
     });
 
     const allKeys = Array.from(keys);
@@ -76,7 +67,7 @@ async function run() {
 
         for (const key of allKeys) {
             // Resolve value from dot notation
-            const val = key.split('.').reduce((o, i) => (o ? o[i] : undefined), doc);
+            const val = getValue(doc, key);
 
             if (val === undefined) continue;
 
@@ -92,12 +83,7 @@ async function run() {
             const ref = { id: doc._id, val }; // current
 
             // Check for redundancy: a == b == ref
-            // We use JSON.stringify to handle objects/arrays roughly, though mostly these are primitives
-            const valA = JSON.stringify(a.val);
-            const valB = JSON.stringify(b.val);
-            const valRef = JSON.stringify(ref.val);
-
-            if (valA === valB && valB === valRef) {
+            if (isRedundant(a.val, b.val, ref.val)) {
                 // 'b' is redundant. 
                 // We queue an unset for 'b'.
                 bulkOps.push({
