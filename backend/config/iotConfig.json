@@ -19,28 +19,6 @@
                 ]
             },
             "data": {
-                "DeviceControl": {
-                    "isOn": true,
-                    "percentage": true,
-                    "frequency": true,
-                    "autoOffTimer": true,
-                    "autoOffRemaining": true,
-                    "fadeDuration": true
-                },
-                "RGBControl": {
-                    "isOn": true,
-                    "percentage": true,
-                    "r": true,
-                    "g": true,
-                    "b": true,
-                    "frequency": true,
-                    "autoOffTimer": true,
-                    "autoOffRemaining": true,
-                    "fadeDuration": true
-                },
-                "TemperatureReader": {
-                    "tempC": true
-                },
                 "BatteryMonitor": {
                     "voltage": {
                         "save": true,
@@ -51,13 +29,35 @@
                     }
                 },
                 "SystemMonitor": {
-                    "largestBlock": true,
                     "uptime": true,
+                    "largestBlock": true,
                     "loopDelay": true
                 },
+                "DeviceControl": {
+                    "autoOffRemaining": true,
+                    "isOn": true,
+                    "percentage": true,
+                    "autoOffTimer": true,
+                    "fadeDuration": true,
+                    "frequency": true
+                },
+                "RGBControl": {
+                    "autoOffRemaining": true,
+                    "isOn": true,
+                    "percentage": true,
+                    "r": true,
+                    "g": true,
+                    "b": true,
+                    "autoOffTimer": true,
+                    "fadeDuration": true,
+                    "frequency": true
+                },
+                "TemperatureReader": {
+                    "tempC": true
+                },
                 "DataExchanger": {
-                    "interval": true,
-                    "trigger": true
+                    "trigger": true,
+                    "interval": true
                 },
                 "CurrentReader": {
                     "current_mA": {

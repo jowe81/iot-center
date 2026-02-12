@@ -152,7 +152,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 latestDataBody.appendChild(separatorRow);
             }
 
-            Object.keys(record.data).sort().forEach(subdeviceType => {
+            const subdeviceTypes = Object.keys(record.data);
+            if (deviceConfig) {
+                const configKeys = Object.keys(deviceConfig);
+                subdeviceTypes.sort((a, b) => {
+                    const idxA = configKeys.indexOf(a);
+                    const idxB = configKeys.indexOf(b);
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    return a.localeCompare(b);
+                });
+            } else {
+                subdeviceTypes.sort();
+            }
+
+            subdeviceTypes.forEach(subdeviceType => {
                 const subdevices = record.data[subdeviceType];
                 if (typeof subdevices !== 'object' || subdevices === null) {
                     return; // Only process object subdevice data
@@ -187,7 +202,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // Iterate through each metric for the subdevice instance
-                    Object.keys(metrics).sort().forEach(metricKey => {
+                    const metricKeys = Object.keys(metrics);
+                    if (deviceConfig && deviceConfig[subdeviceType]) {
+                        const typeConfig = deviceConfig[subdeviceType];
+                        const configFields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
+                        metricKeys.sort((a, b) => {
+                            const idxA = configFields.indexOf(a);
+                            const idxB = configFields.indexOf(b);
+                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                            if (idxA !== -1) return -1;
+                            if (idxB !== -1) return 1;
+                            return a.localeCompare(b);
+                        });
+                    } else {
+                        metricKeys.sort();
+                    }
+
+                    metricKeys.forEach(metricKey => {
                         const row = document.createElement('tr');
                         row.className = 'data-row';
 

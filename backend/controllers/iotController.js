@@ -69,24 +69,33 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         // Iterate over top-level keys to find typed objects
         for (const [key, value] of Object.entries(data)) {
-            if (value && typeof value === "object" && value.type && deviceConfig[value.type]) {
-                const extracted = {};
-                const typeConfig = deviceConfig[value.type];
-                const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
+            if (value && typeof value === "object") {
+                let typeToUse;
+                if (value.subType && deviceConfig[value.subType]) {
+                    typeToUse = value.subType;
+                } else if (value.type && deviceConfig[value.type]) {
+                    typeToUse = value.type;
+                }
 
-                fields.forEach((field) => {
-                    const config = Array.isArray(typeConfig) ? true : typeConfig[field];
-                    const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
-                    if (shouldSave && value[field] !== undefined) {
-                        extracted[field] = value[field];
-                    }
-                });
+                if (typeToUse) {
+                    const extracted = {};
+                    const typeConfig = deviceConfig[typeToUse];
+                    const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
 
-                if (Object.keys(extracted).length > 0) {
-                    if (!filteredData.data[value.type]) {
-                        filteredData.data[value.type] = {};
+                    fields.forEach((field) => {
+                        const config = Array.isArray(typeConfig) ? true : typeConfig[field];
+                        const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
+                        if (shouldSave && value[field] !== undefined) {
+                            extracted[field] = value[field];
+                        }
+                    });
+
+                    if (Object.keys(extracted).length > 0) {
+                        if (!filteredData.data[typeToUse]) {
+                            filteredData.data[typeToUse] = {};
+                        }
+                        filteredData.data[typeToUse][key] = extracted;
                     }
-                    filteredData.data[value.type][key] = extracted;
                 }
             }
         }
