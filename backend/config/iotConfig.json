@@ -27,6 +27,17 @@
                     "autoOffRemaining": true,
                     "fadeDuration": true
                 },
+                "RGBControl": {
+                    "isOn": true,
+                    "percentage": true,
+                    "r": true,
+                    "g": true,
+                    "b": true,
+                    "frequency": true,
+                    "autoOffTimer": true,
+                    "autoOffRemaining": true,
+                    "fadeDuration": true
+                },
                 "TemperatureReader": {
                     "tempC": true
                 },
@@ -47,6 +58,31 @@
                 "DataExchanger": {
                     "interval": true,
                     "trigger": true
+                },
+                "CurrentReader": {
+                    "current_mA": {
+                        "save": true,
+                        "label": "Current (mA)"
+                    },
+                    "voltage_V": {
+                        "save": true,
+                        "label": "Voltage (V)"
+                    },
+                    "power_mW": {
+                        "save": true,
+                        "label": "Power (mW)"
+                    }, 
+                    "readingsCount": {
+                        "save": true
+                    },
+                    "interval": {
+                        "save": true
+                    },
+                    "bufferSize": {
+                        "save": true
+                    },
+                    "averagingSamples" : true,
+                    "calibrationMode" : true
                 }
             }
         },
@@ -96,10 +132,31 @@
                 
             }
         },
+        "RGBControl": {
+            "supportedCommands": {
+                "setState": "boolean",
+                "toggleState": "boolean",
+                "setPercentage": "integer",
+                "setR": "integer",
+                "setG": "integer",
+                "setB": "integer",
+                "setFrequency": "integer",
+                "setAutoOffTimer": "integer",
+                "setFadeDuration": "integer"
+            }
+        },
         "SystemMonitor": {
             "supportedCommands": {
                 "reboot": "boolean",
                 "setLoopDelay": "integer"
+            }
+        },
+        "CurrentReader": {
+            "supportedCommands": {
+                "setBufferSize": "integer",
+                "setInterval": "integer",
+                "setAveragingSamples": "integer",
+                "setCalibrationMode": "integer"
             }
         }
     }

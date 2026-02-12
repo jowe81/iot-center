@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import log from '../utils/logger.js';
-import { fetchDeviceStats, fetchLatestData, fetchDeviceData } from './frontendController.js';
+import { fetchDeviceStats, fetchLatestData, fetchDeviceData, fetchLatestRawData, fetchDeviceConfig } from './frontendController.js';
 
 let wss;
 
@@ -21,6 +21,12 @@ export const initWebSocket = (server) => {
                 } else if (req.type === 'GET_LATEST') {
                     const data = await fetchLatestData(req.deviceId);
                     ws.send(JSON.stringify({ type: 'LATEST', deviceId: req.deviceId, payload: data }));
+                } else if (req.type === 'GET_LATEST_RAW') {
+                    const data = await fetchLatestRawData(req.deviceId);
+                    ws.send(JSON.stringify({ type: 'LATEST_RAW', deviceId: req.deviceId, payload: data }));
+                } else if (req.type === 'GET_DEVICE_CONFIG') {
+                    const data = await fetchDeviceConfig(req.deviceId);
+                    ws.send(JSON.stringify({ type: 'DEVICE_CONFIG', deviceId: req.deviceId, payload: data }));
                 } else if (req.type === 'GET_GRAPH') {
                     const data = await fetchDeviceData(req.deviceId, req.options);
                     ws.send(JSON.stringify({ type: 'GRAPH', deviceId: req.deviceId, payload: data, options: req.options }));

@@ -4,12 +4,22 @@ const accuracySelect = document.getElementById('accuracySelect');
 const interpolationSelect = document.getElementById('interpolationSelect');
 const ctx = document.getElementById('dataChart').getContext('2d');
 
+const fieldFilter = document.createElement('input');
+fieldFilter.type = 'text';
+fieldFilter.id = 'fieldFilter';
+fieldFilter.placeholder = 'Filter data fields...';
+fieldFilter.style.width = '100%';
+fieldFilter.style.marginBottom = '5px';
+fieldFilter.style.padding = '4px';
+fieldSelect.parentNode.insertBefore(fieldFilter, fieldSelect);
+
 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#767676'];
 
 let chart;
 let deviceConfigs = {};
 
 const ws = new WebSocket(`ws://${window.location.host}`);
+let allFieldOptions = [];
 const chartDataCache = {};
 
 ws.onopen = () => {
@@ -59,6 +69,10 @@ function initChart() {
 // Fetch All Keys from All Devices
 async function loadAllKeys() {
     fieldSelect.innerHTML = '';
+    allFieldOptions = [];
+    if (fieldFilter) {
+        fieldFilter.value = '';
+    }
     fieldSelect.disabled = true;
 
     try {
@@ -93,6 +107,11 @@ async function loadAllKeys() {
             option.textContent = `${deviceId}: ${key.replace(/^data\./, '')}`;
             fieldSelect.appendChild(option);
         });
+
+        allFieldOptions = Array.from(fieldSelect.options).map(opt => ({
+            value: opt.value,
+            text: opt.text
+        }));
         fieldSelect.disabled = false;
 
         // Restore state from URL
@@ -235,6 +254,28 @@ timeframeSelect.addEventListener('change', updateChart);
 accuracySelect.addEventListener('change', updateChart);
 interpolationSelect.addEventListener('change', updateChart);
 
+if (fieldFilter) {
+    fieldFilter.addEventListener('input', (e) => {
+        const searchTerms = e.target.value.toLowerCase().split(',').map(s => s.trim()).filter(s => s);
+        const currentSelection = Array.from(fieldSelect.selectedOptions).map(o => o.value);
+
+        // Clear current options
+        fieldSelect.innerHTML = '';
+
+        // Re-add matching options
+        allFieldOptions.forEach(opt => {
+            const text = opt.text.toLowerCase();
+            const matches = searchTerms.length === 0 || searchTerms.some(term => text.includes(term));
+            if (matches) {
+                const option = new Option(opt.text, opt.value);
+                if (currentSelection.includes(opt.value)) {
+                    option.selected = true;
+                }
+                fieldSelect.add(option);
+            }
+        });
+    });
+}
 // Start
 initChart();
 loadAllKeys();

@@ -7,19 +7,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!deviceSelect || !latestDataSection || !latestDataBody) return;
 
-    const ws = new WebSocket(`ws://${window.location.host}`);
+    // Create Raw Data Section if it doesn't exist
+    let latestRawDataSection = document.getElementById('latestRawDataSection');
+    let latestRawDataBody = document.getElementById('latestRawDataBody');
 
-    ws.onopen = () => {
-        if (deviceSelect.value) updateLatestData(deviceSelect.value);
-    };
+    if (!latestRawDataSection && latestDataSection) {
+        latestRawDataSection = document.createElement('div');
+        latestRawDataSection.id = 'latestRawDataSection';
+        latestRawDataSection.style.display = 'none';
+        latestRawDataSection.style.marginTop = '20px';
+        
+        const header = document.createElement('h3');
+        header.textContent = 'Latest Raw Data';
+        latestRawDataSection.appendChild(header);
 
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'LATEST' && msg.deviceId === deviceSelect.value) {
-            renderData(msg.payload, msg.deviceId);
-            latestDataSection.style.display = 'block';
+        latestRawDataBody = document.createElement('pre');
+        latestRawDataBody.id = 'latestRawDataBody';
+        latestRawDataBody.style.backgroundColor = '#f5f5f5';
+        latestRawDataBody.style.padding = '10px';
+        latestRawDataBody.style.borderRadius = '4px';
+        latestRawDataBody.style.overflowX = 'auto';
+        latestRawDataBody.style.maxHeight = '300px';
+        latestRawDataSection.appendChild(latestRawDataBody);
+
+        latestDataSection.parentNode.insertBefore(latestRawDataSection, latestDataSection.nextSibling);
+    }
+
+    let deviceConfigResolve = null;
+    let deviceConfigPromise = Promise.resolve({});
+    let ws;
+
+    function fetchDeviceConfig(deviceId) {
+        deviceConfigPromise = new Promise((resolve) => {
+            deviceConfigResolve = resolve;
+        });
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'GET_DEVICE_CONFIG', deviceId }));
         }
-    };
+    }
+
+    function connectWebSocket() {
+        ws = new WebSocket(`ws://${window.location.host}`);
+
+        ws.onopen = () => {
+            if (deviceSelect.value) {
+                fetchDeviceConfig(deviceSelect.value);
+                updateLatestData(deviceSelect.value);
+            }
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'LATEST' && msg.deviceId === deviceSelect.value) {
+                renderData(msg.payload, msg.deviceId);
+                latestDataSection.style.display = 'block';
+            }
+            if (msg.type === 'LATEST_RAW' && msg.deviceId === deviceSelect.value) {
+                if (msg.payload && latestRawDataSection && latestRawDataBody) {
+                    latestRawDataBody.textContent = JSON.stringify(msg.payload, null, 2);
+                    latestRawDataSection.style.display = 'block';
+                } else if (latestRawDataSection) {
+                    latestRawDataSection.style.display = 'none';
+                }
+            }
+            if (msg.type === 'DEVICE_CONFIG' && msg.deviceId === deviceSelect.value) {
+                if (deviceConfigResolve) deviceConfigResolve(msg.payload);
+            }
+        };
+
+        ws.onclose = () => {
+            setTimeout(connectWebSocket, 1000);
+        };
+    }
+
+    connectWebSocket();
 
     let commandDefinitions = {};
     const pendingToggles = new Map();
@@ -32,21 +93,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const deviceId = e.target.value;
         if (!deviceId) {
             latestDataSection.style.display = 'none';
+            if (latestRawDataSection) latestRawDataSection.style.display = 'none';
             return;
         }
 
+        fetchDeviceConfig(deviceId);
         updateLatestData(deviceId);
     });
 
     function updateLatestData(deviceId) {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'GET_LATEST', deviceId }));
+            ws.send(JSON.stringify({ type: 'GET_LATEST_RAW', deviceId }));
         }
     }
 
     async function renderData(record, deviceId) {
         if (!record) return;
         await definitionsPromise;
+        const deviceConfig = await deviceConfigPromise;
 
         latestDataBody.innerHTML = '';
 
@@ -136,7 +201,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         const fullKey = `data.${subdeviceType}.${subdeviceName}.${metricKey}`;
                         const link = document.createElement('a');
                         link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(fullKey)}`;
-                        link.textContent = formatKey(metricKey);
+                        
+                        let label = formatKey(metricKey);
+                        if (deviceConfig && 
+                            deviceConfig[subdeviceType] && 
+                            deviceConfig[subdeviceType][metricKey] &&
+                            deviceConfig[subdeviceType][metricKey].label) {
+                            label = deviceConfig[subdeviceType][metricKey].label;
+                        }
+                        
+                        link.textContent = label;
                         keyCell.appendChild(link);
 
                         const valueCell = document.createElement('td');

@@ -2,6 +2,8 @@ import { createRequire } from 'module';
 import { getDb } from '../config/db.js';
 import { sendMqttCommand } from './mqttService.js';
 import { addCommand, markCommandAsSent } from './commandService.js';
+import { detectPlateauAtTime } from '../utils/dataUtils.js';
+import { getRawData } from '../utils/rawDataStore.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -203,10 +205,12 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
         const collection = db.collection(`device_${deviceId}`);
 
         let query = {};
+        let startTime;
+        let endTime = new Date();
 
         if (timeframe && timeframe !== 'all') {
             const now = new Date();
-            let startTime = new Date(now);
+            startTime = new Date(now);
             
             switch (timeframe) {
                 case "30m":
@@ -251,6 +255,41 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             .sort({ receivedAt: -1 })
             .limit(10000) // Increased limit to allow for larger timeframes
             .toArray();
+
+        if (startTime) {
+            const duration = endTime.getTime() - startTime.getTime();
+            const threshold = duration * 0.05;
+
+            const hasStartData = data.length > 0 && (data[data.length - 1].receivedAt.getTime() - startTime.getTime()) <= threshold;
+
+            if (!hasStartData) {
+                const beforeDoc = await collection.findOne(
+                    { receivedAt: { $lt: startTime } },
+                    { sort: { receivedAt: -1 }, projection }
+                );
+                if (beforeDoc) {
+                    beforeDoc.receivedAt = startTime;
+                    data.push(beforeDoc);
+                }
+            }
+
+            const hasEndData = data.length > 0 && (endTime.getTime() - data[0].receivedAt.getTime()) <= threshold;
+
+            if (!hasEndData) {
+                const afterDoc = await collection.findOne(
+                    { receivedAt: { $gt: endTime } },
+                    { sort: { receivedAt: 1 }, projection }
+                );
+                if (afterDoc) {
+                    afterDoc.receivedAt = endTime;
+                    data.unshift(afterDoc);
+                } else if (data.length > 0) {
+                    const lastKnownDoc = { ...data[0] };
+                    lastKnownDoc.receivedAt = endTime;
+                    data.unshift(lastKnownDoc);
+                }
+            }
+        }
 
         const result = {};
 
@@ -330,6 +369,15 @@ export const getLatestData = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+};
+
+export const fetchLatestRawData = async (deviceId) => {
+    return getRawData(deviceId);
+};
+
+export const fetchDeviceConfig = async (deviceId) => {
+    const deviceSettings = iotConfig.devices?.[deviceId];
+    return deviceSettings?.data || {};
 };
 
 export const getDeviceConfig = async (req, res) => {

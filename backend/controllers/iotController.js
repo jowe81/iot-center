@@ -4,6 +4,8 @@ import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
 import { broadcast } from './websocketService.js';
 import { fetchDeviceStats } from './frontendController.js';
+import { findDataKeys, getValue, isRedundant } from '../utils/dataUtils.js';
+import { saveRawData } from '../utils/rawDataStore.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
@@ -36,6 +38,9 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
             log.info(`[${protocol}] Received data from unknown device without an id. Ignoring.`);
             return { statusCode: 400, payload: "Missing deviceId" };
         }
+
+        // Save raw data in memory
+        saveRawData(deviceId, data);
 
         // Select configuration for this device
         const deviceSettings = iotConfig.devices?.[deviceId];
@@ -95,6 +100,27 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         const collection = db.collection(`device_${deviceId}`);
         await collection.insertOne(filteredData);
 
+        // Post-processing: Remove redundant data from the previous record
+        const keysToCheck = findDataKeys(filteredData);
+        
+        for (const key of keysToCheck) {
+            const lastThree = await collection.find(
+                { [key]: { $exists: true } },
+                { projection: { [key]: 1 }, sort: { receivedAt: -1 }, limit: 3 }
+            ).toArray();
+
+            if (lastThree.length === 3) {
+                const [c, b, a] = lastThree;
+                const valC = getValue(c, key);
+                const valB = getValue(b, key);
+                const valA = getValue(a, key);
+
+                if (isRedundant(valA, valB, valC)) {
+                    await collection.updateOne({ _id: b._id }, { $unset: { [key]: "" } });
+                }
+            }
+        }
+
         const responsePayload = { status: "Recorded", collection: `device_${deviceId}`, deviceId };
         
         const commands = await getPendingCommands(deviceId) || {};
@@ -108,6 +134,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         
         // Broadcast updates via WebSocket
         broadcast('LATEST', { deviceId, payload: filteredData });
+        broadcast('LATEST_RAW', { deviceId, payload: data });
         const stats = await fetchDeviceStats(deviceId);
         broadcast('STATS', { deviceId, payload: stats });
 
