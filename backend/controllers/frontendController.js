@@ -130,12 +130,18 @@ export const queueCommand = async (req, res) => {
         }
 
         const db = getDb();
-
-        const commandObj = {
-            [subDevice]: {
-                [command]: argument
-            }
+        
+        let commandObj = {
+            [subDevice]: {}
         };
+
+        if (typeof command === 'object') {
+            // Entire commmand object (may contain multiple commands)
+            commandObj[subDevice] = { ...command };
+        } else {
+            // Single command and argument
+            commandObj[subDevice][command] = argument;
+        }
 
         const insertedId = await addCommand(deviceId, commandObj);
 
