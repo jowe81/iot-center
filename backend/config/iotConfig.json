@@ -26,7 +26,8 @@
                             "low": 12.2,
                             "high": 12.8
                         }
-                    }
+                    },
+                    "voltageRaw": true
                 },
                 "SystemMonitor": {
                     "uptime": true,

@@ -71,7 +71,9 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         for (const [key, value] of Object.entries(data)) {
             if (value && typeof value === "object") {
                 let typeToUse;
-                if (value.subType && deviceConfig[value.subType]) {
+                if (deviceConfig[key]) {
+                    typeToUse = key;
+                } else if (value.subType && deviceConfig[value.subType]) {
                     typeToUse = value.subType;
                 } else if (value.type && deviceConfig[value.type]) {
                     typeToUse = value.type;
