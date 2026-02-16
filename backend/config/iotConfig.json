@@ -53,7 +53,7 @@
                     "fadeDuration": true,
                     "frequency": true
                 },
-                "TemperatureReader": {
+                "DS18B20": {
                     "tempC": true
                 },
                 "DataExchanger": {
@@ -98,7 +98,7 @@
                 ]
             },
             "data": {
-                "TemperatureReader": {
+                "DS18B20": {
                     "tempC": true
                 },
                 "SystemMonitor": {
@@ -109,6 +109,50 @@
                 "DataExchanger": {
                     "interval": true,
                     "trigger": true
+                }
+            }
+        },
+        "livingroom_01": {
+            "meta": {
+                "name": "Living Room"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
+            "data": {
+                "DS18B20": {
+                    "tempC": true,
+                    "tempCOffset": true
+                },
+                "SystemMonitor": {
+                    "largestBlock": true,
+                    "uptime": true,
+                    "loopDelay": true
+                },
+                "DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                },
+                "SHT31": {
+                    "tempC": true,
+                    "humidity": true,
+                    "interval": true,
+                    "tempCOffset": true,
+                    "humOffset": true
+                },
+                "RGBControl": {
+                    "autoOffRemaining": true,
+                    "isOn": true,
+                    "percentage": true,
+                    "r": true,
+                    "g": true,
+                    "b": true,
+                    "autoOffTimer": true,
+                    "fadeDuration": true,
+                    "frequency": true
                 }
             }
         }
@@ -158,6 +202,18 @@
                 "setInterval": "integer",
                 "setAveragingSamples": "integer",
                 "setCalibrationMode": "integer"
+            }
+        },
+        "SHT31": {
+            "supportedCommands": {
+                "setInterval": "integer",
+                "setTempCOffset": "float",
+                "setHumOffset": "float"
+            }
+        },
+        "DS18B20": {
+            "supportedCommands": {
+                "setTempCOffset": "float"
             }
         }
     }

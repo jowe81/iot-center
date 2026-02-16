@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Iterate through each metric for the subdevice instance
                     const metricKeys = Object.keys(metrics);
+                    console.log('subdeviceType', subdeviceType)
                     if (deviceConfig && deviceConfig[subdeviceType]) {
                         const typeConfig = deviceConfig[subdeviceType];
                         const configFields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
@@ -277,7 +278,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             } else {
                                 input = document.createElement('input');
-                                input.type = argType === 'integer' ? 'number' : 'text';
+                                input.type = (argType === 'integer' || argType === 'float') ? 'number' : 'text';
+                                if (argType === 'float') {
+                                    input.step = 'any';
+                                }
                                 if (metrics[metricKey] !== undefined && metrics[metricKey] !== null) {
                                     input.value = metrics[metricKey];
                                 }
@@ -291,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             btn.onclick = () => {
                                 let val = input.value;
                                 if (argType === 'integer') val = parseInt(val, 10);
+                                if (argType === 'float') val = parseFloat(val);
                                 if (argType === 'boolean') val = val === 'true';
 
                                 btn.disabled = true;

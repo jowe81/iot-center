@@ -70,18 +70,18 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         // Iterate over top-level keys to find typed objects
         for (const [key, value] of Object.entries(data)) {
             if (value && typeof value === "object") {
-                let typeToUse;
+                let configKey;
                 if (deviceConfig[key]) {
-                    typeToUse = key;
+                    configKey = key;
                 } else if (value.subType && deviceConfig[value.subType]) {
-                    typeToUse = value.subType;
+                    configKey = value.subType;
                 } else if (value.type && deviceConfig[value.type]) {
-                    typeToUse = value.type;
+                    configKey = value.type;
                 }
 
-                if (typeToUse) {
+                if (configKey) {
                     const extracted = {};
-                    const typeConfig = deviceConfig[typeToUse];
+                    const typeConfig = deviceConfig[configKey];
                     const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
 
                     fields.forEach((field) => {
@@ -93,10 +93,11 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                     });
 
                     if (Object.keys(extracted).length > 0) {
-                        if (!filteredData.data[typeToUse]) {
-                            filteredData.data[typeToUse] = {};
+                        const storageKey = value.type || configKey;
+                        if (!filteredData.data[storageKey]) {
+                            filteredData.data[storageKey] = {};
                         }
-                        filteredData.data[typeToUse][key] = extracted;
+                        filteredData.data[storageKey][key] = extracted;
                     }
                 }
             }
