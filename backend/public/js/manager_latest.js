@@ -152,207 +152,251 @@ document.addEventListener('DOMContentLoaded', () => {
                 latestDataBody.appendChild(separatorRow);
             }
 
-            const subdeviceTypes = Object.keys(record.data);
+            const types = Object.keys(record.data);
             if (deviceConfig) {
                 const configKeys = Object.keys(deviceConfig);
-                subdeviceTypes.sort((a, b) => {
-                    const idxA = configKeys.indexOf(a);
-                    const idxB = configKeys.indexOf(b);
+                // Extract unique types from config keys (assuming "Type.Subtype" format)
+                const configTypes = [...new Set(configKeys.map(k => k.split('.')[0]))];
+                
+                types.sort((a, b) => {
+                    const idxA = configTypes.indexOf(a);
+                    const idxB = configTypes.indexOf(b);
                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                     if (idxA !== -1) return -1;
                     if (idxB !== -1) return 1;
                     return a.localeCompare(b);
                 });
             } else {
-                subdeviceTypes.sort();
+                types.sort();
             }
 
-            subdeviceTypes.forEach(subdeviceType => {
-                const subdevices = record.data[subdeviceType];
-                if (typeof subdevices !== 'object' || subdevices === null) {
-                    return; // Only process object subdevice data
+            types.forEach(type => {
+                const typeData = record.data[type];
+                if (typeof typeData !== 'object' || typeData === null) return;
+
+                // Render Type Header
+                const typeHeaderRow = document.createElement('tr');
+                const typeHeaderCell = document.createElement('td');
+                typeHeaderCell.className = 'header-cell';
+                typeHeaderCell.colSpan = 3;
+                typeHeaderCell.textContent = formatKey(type);
+                typeHeaderRow.appendChild(typeHeaderCell);
+                latestDataBody.appendChild(typeHeaderRow);
+
+                // Check nesting
+                let isNested = false;
+                if (deviceConfig) {
+                    const firstKey = Object.keys(typeData)[0];
+                    if (firstKey && deviceConfig[`${type}.${firstKey}`]) {
+                        isNested = true;
+                    }
                 }
 
-                // Subdevice header
-                const headerRow = document.createElement('tr');
-                const headerCell = document.createElement('td');
-                headerCell.className = 'header-cell';
-                headerCell.colSpan = 3;
-                headerCell.textContent = formatKey(subdeviceType);
-                headerRow.appendChild(headerCell);
-                latestDataBody.appendChild(headerRow);
+                if (isNested) {
+                    const subtypes = Object.keys(typeData).sort();
+                    subtypes.forEach(subtype => {
+                        const subtypeData = typeData[subtype];
+                        
+                        // Render Subtype Header
+                        const subtypeHeaderRow = document.createElement('tr');
+                        const subtypeHeaderCell = document.createElement('td');
+                        subtypeHeaderCell.className = 'subheader-cell';
+                        subtypeHeaderCell.colSpan = 3;
+                        subtypeHeaderCell.textContent = formatKey(subtype);
+                        subtypeHeaderRow.appendChild(subtypeHeaderCell);
+                        latestDataBody.appendChild(subtypeHeaderRow);
 
-                // Iterate through each subdevice instance of this type
-                Object.keys(subdevices).sort().forEach(subdeviceName => {
-                    const metrics = subdevices[subdeviceName];
-                    if (typeof metrics !== 'object' || metrics === null) {
-                        return;
-                    }
-
-                    const hasMultipleSubdevicesOfThisType = Object.keys(subdevices).length > 1;
-
-                    if (hasMultipleSubdevicesOfThisType) {
-                        const subHeaderRow = document.createElement('tr');
-                        const subHeaderCell = document.createElement('td');
-                        subHeaderCell.className = 'subheader-cell';
-                        subHeaderCell.colSpan = 3;
-                        subHeaderCell.textContent = formatKey(subdeviceName);
-                        subHeaderRow.appendChild(subHeaderCell);
-                        latestDataBody.appendChild(subHeaderRow);
-                    }
-
-                    // Iterate through each metric for the subdevice instance
-                    const metricKeys = Object.keys(metrics);
-                    console.log('subdeviceType', subdeviceType)
-                    if (deviceConfig && deviceConfig[subdeviceType]) {
-                        const typeConfig = deviceConfig[subdeviceType];
-                        const configFields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
-                        metricKeys.sort((a, b) => {
-                            const idxA = configFields.indexOf(a);
-                            const idxB = configFields.indexOf(b);
-                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                            if (idxA !== -1) return -1;
-                            if (idxB !== -1) return 1;
-                            return a.localeCompare(b);
+                        const names = Object.keys(subtypeData).sort();
+                        names.forEach(name => {
+                            const metrics = subtypeData[name];
+                            renderMetrics(metrics, type, subtype, name);
                         });
-                    } else {
-                        metricKeys.sort();
+                    });
+                } else {
+                    const names = Object.keys(typeData).sort();
+                    names.forEach(name => {
+                        const metrics = typeData[name];
+                        renderMetrics(metrics, type, null, name);
+                    });
+                }
+            });
+
+            function renderMetrics(metrics, type, subtype, name) {
+                if (typeof metrics !== 'object' || metrics === null) return;
+
+                // Render Name Header
+                const nameHeaderRow = document.createElement('tr');
+                const nameHeaderCell = document.createElement('td');
+                nameHeaderCell.className = 'subheader-cell';
+                nameHeaderCell.style.paddingLeft = '20px';
+                nameHeaderCell.style.fontSize = '0.9em';
+                nameHeaderCell.style.color = '#555';
+                nameHeaderCell.colSpan = 3;
+                nameHeaderCell.textContent = formatKey(name);
+                nameHeaderRow.appendChild(nameHeaderCell);
+                latestDataBody.appendChild(nameHeaderRow);
+
+                const metricKeys = Object.keys(metrics);
+                const configKey = subtype ? `${type}.${subtype}` : type;
+                let specificConfig = null;
+                
+                if (deviceConfig) {
+                    if (deviceConfig[configKey]) {
+                        specificConfig = deviceConfig[configKey];
+                    }
+                }
+
+                let defs = commandDefinitions[configKey];
+                if (!defs && configKey.includes('.')) {
+                    const parts = configKey.split('.');
+                    defs = commandDefinitions[parts[0]];
+                }
+
+                if (specificConfig) {
+                    const configFields = Array.isArray(specificConfig) ? specificConfig : Object.keys(specificConfig);
+                    metricKeys.sort((a, b) => {
+                        const idxA = configFields.indexOf(a);
+                        const idxB = configFields.indexOf(b);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                        return a.localeCompare(b);
+                    });
+                } else {
+                    metricKeys.sort();
+                }
+
+                metricKeys.forEach(metricKey => {
+                    const row = document.createElement('tr');
+                    row.className = 'data-row';
+
+                    const keyCell = document.createElement('td');
+                    keyCell.className = 'key-cell';
+                    keyCell.style.paddingLeft = '40px';
+                    
+                    const fullKey = subtype ? `data.${type}.${subtype}.${name}.${metricKey}` : `data.${type}.${name}.${metricKey}`;
+                    const link = document.createElement('a');
+                    link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(fullKey)}`;
+                    
+                    let label = formatKey(metricKey);
+                    if (defs && defs.labels && defs.labels[metricKey]) {
+                        label = defs.labels[metricKey];
                     }
 
-                    metricKeys.forEach(metricKey => {
-                        const row = document.createElement('tr');
-                        row.className = 'data-row';
+                    if (specificConfig && 
+                        !Array.isArray(specificConfig) &&
+                        specificConfig[metricKey] &&
+                        specificConfig[metricKey].label) {
+                        label = specificConfig[metricKey].label;
+                    }
+                    
+                    link.textContent = label;
+                    keyCell.appendChild(link);
 
-                        const keyCell = document.createElement('td');
-                        keyCell.className = 'key-cell';
-                        if (hasMultipleSubdevicesOfThisType) {
-                            keyCell.classList.add('deeply-indented-key-cell');
-                        } else {
-                            keyCell.classList.add('indented-key-cell');
-                        }
-                        const fullKey = `data.${subdeviceType}.${subdeviceName}.${metricKey}`;
-                        const link = document.createElement('a');
-                        link.href = `graph.html?deviceId=${encodeURIComponent(deviceId)}&fields=${encodeURIComponent(fullKey)}`;
+                    const valueCell = document.createElement('td');
+                    valueCell.className = 'value-cell';
+                    const actionCell = document.createElement('td');
+                    actionCell.className = 'action-cell';
+
+                    let commandName = 'set' + metricKey.charAt(0).toUpperCase() + metricKey.slice(1);
+                    if (defs && defs.keysToCommandsMap && defs.keysToCommandsMap[metricKey]) {
+                        commandName = defs.keysToCommandsMap[metricKey];
+                    }
+
+                    if (defs &&
+                        defs.supportedCommands &&
+                        defs.supportedCommands[commandName]) {
+
+                        const argType = defs.supportedCommands[commandName];
                         
-                        let label = formatKey(metricKey);
-                        if (deviceConfig && 
-                            deviceConfig[subdeviceType] && 
-                            deviceConfig[subdeviceType][metricKey] &&
-                            deviceConfig[subdeviceType][metricKey].label) {
-                            label = deviceConfig[subdeviceType][metricKey].label;
-                        }
-                        
-                        link.textContent = label;
-                        keyCell.appendChild(link);
-
-                        const valueCell = document.createElement('td');
-                        valueCell.className = 'value-cell';
-                        const actionCell = document.createElement('td');
-                        actionCell.className = 'action-cell';
-
-                        let commandName = 'set' + metricKey.charAt(0).toUpperCase() + metricKey.slice(1);
-                        if (commandDefinitions[subdeviceType] && commandDefinitions[subdeviceType].keysToCommandsMap && commandDefinitions[subdeviceType].keysToCommandsMap[metricKey]) {
-                            commandName = commandDefinitions[subdeviceType].keysToCommandsMap[metricKey];
-                        }
-
-                        if (commandDefinitions[subdeviceType] &&
-                            commandDefinitions[subdeviceType].supportedCommands &&
-                            commandDefinitions[subdeviceType].supportedCommands[commandName]) {
-
-                            const argType = commandDefinitions[subdeviceType].supportedCommands[commandName];
-                            // const container = document.createElement('div');
-                            // container.className = 'command-container';
-
-                            let input;
-                            if (argType === 'boolean') {
-                                input = document.createElement('select');
-                                const optTrue = new Option('True', 'true');
-                                const optFalse = new Option('False', 'false');
-                                input.add(optTrue);
-                                input.add(optFalse);
-                                //if (metrics[metricKey] === false) optFalse.selected = true;
-                                if (metrics[metricKey] === false) {
-                                    optFalse.selected = true;
-                                } else {
-                                    optTrue.selected = true;
-                                }
+                        let input;
+                        if (argType === 'boolean') {
+                            input = document.createElement('select');
+                            const optTrue = new Option('True', 'true');
+                            const optFalse = new Option('False', 'false');
+                            input.add(optTrue);
+                            input.add(optFalse);
+                            if (metrics[metricKey] === false) {
+                                optFalse.selected = true;
                             } else {
-                                input = document.createElement('input');
-                                input.type = (argType === 'integer' || argType === 'float') ? 'number' : 'text';
-                                if (argType === 'float') {
-                                    input.step = 'any';
-                                }
-                                if (metrics[metricKey] !== undefined && metrics[metricKey] !== null) {
-                                    input.value = metrics[metricKey];
-                                }
+                                optTrue.selected = true;
                             }
-                            valueCell.appendChild(input);
+                        } else {
+                            input = document.createElement('input');
+                            input.type = (argType === 'integer' || argType === 'float') ? 'number' : 'text';
+                            if (argType === 'float') {
+                                input.step = 'any';
+                            }
+                            if (metrics[metricKey] !== undefined && metrics[metricKey] !== null) {
+                                input.value = metrics[metricKey];
+                            }
+                        }
+                        valueCell.appendChild(input);
 
-                            const btn = document.createElement('button');
-                            btn.className = 'send-command-btn';
-                            btn.title = 'Send Command';
-                            btn.innerHTML = sendIcon;
-                            btn.onclick = () => {
-                                let val = input.value;
-                                if (argType === 'integer') val = parseInt(val, 10);
-                                if (argType === 'float') val = parseFloat(val);
-                                if (argType === 'boolean') val = val === 'true';
+                        const btn = document.createElement('button');
+                        btn.className = 'send-command-btn';
+                        btn.title = 'Send Command';
+                        btn.innerHTML = sendIcon;
+                        btn.onclick = () => {
+                            let val = input.value;
+                            if (argType === 'integer') val = parseInt(val, 10);
+                            if (argType === 'float') val = parseFloat(val);
+                            if (argType === 'boolean') val = val === 'true';
 
-                                btn.disabled = true;
-                                btn.textContent = '...';
-                                fetch('/api/commands/queue', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        deviceId: deviceId,
-                                        subDevice: subdeviceName,
-                                        command: commandName,
-                                        argument: val
-                                    })
-                                }).then(res => {
-                                    if (res.ok) {
-                                        btn.textContent = '✓';
-                                        setTimeout(() => {
-                                            btn.disabled = false;
-                                            btn.innerHTML = sendIcon;
-                                        }, 1500);
-                                    } else {
-                                        btn.textContent = '✗';
+                            btn.disabled = true;
+                            btn.textContent = '...';
+                            fetch('/api/commands/queue', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    deviceId: deviceId,
+                                    subDevice: name,
+                                    command: commandName,
+                                    argument: val
+                                })
+                            }).then(res => {
+                                if (res.ok) {
+                                    btn.textContent = '✓';
+                                    setTimeout(() => {
                                         btn.disabled = false;
-                                    }
-                                }).catch(err => {
-                                    console.error(err);
+                                        btn.innerHTML = sendIcon;
+                                    }, 1500);
+                                } else {
                                     btn.textContent = '✗';
                                     btn.disabled = false;
-                                });
-                            };
-
-                            actionCell.appendChild(btn);
-                        } else {
-                            const val = formatValue(metricKey, metrics[metricKey], {
-                                deviceId,
-                                subDeviceName: subdeviceName,
-                                subDeviceType: subdeviceType
+                                }
+                            }).catch(err => {
+                                console.error(err);
+                                btn.textContent = '✗';
+                                btn.disabled = false;
                             });
-                            if (val instanceof Node) {
-                                valueCell.appendChild(val);
-                            } else {
-                                valueCell.textContent = val;
-                            }
-                        }
+                        };
 
-                        row.appendChild(keyCell);
-                        row.appendChild(valueCell);
-                        row.appendChild(actionCell);
-                        latestDataBody.appendChild(row);
-                    });
+                        actionCell.appendChild(btn);
+                    } else {
+                        const val = formatValue(metricKey, metrics[metricKey], {
+                            deviceId,
+                            subDeviceName: name,
+                            subDeviceType: configKey
+                        });
+                        if (val instanceof Node) {
+                            valueCell.appendChild(val);
+                        } else {
+                            valueCell.textContent = val;
+                        }
+                    }
+
+                    row.appendChild(keyCell);
+                    row.appendChild(valueCell);
+                    row.appendChild(actionCell);
+                    latestDataBody.appendChild(row);
                 });
-            });
+            }
         }
     }
 
     function formatKey(key) {
-        return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, str => str.toUpperCase());
     }
 
     function formatValue(key, value, context) {
@@ -376,8 +420,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (context && commandDefinitions[context.subDeviceType]) {
-                const cmds = commandDefinitions[context.subDeviceType].supportedCommands;
+            let defs = null;
+            if (context) {
+                defs = commandDefinitions[context.subDeviceType];
+                if (!defs && context.subDeviceType.includes('.')) {
+                    const parts = context.subDeviceType.split('.');
+                    defs = commandDefinitions[parts[0]];
+                }
+            }
+
+            if (defs) {
+                const cmds = defs.supportedCommands;
                 if (cmds && cmds.hasOwnProperty('toggleState')) {
                     span.classList.add('toggleable');
                     span.title = 'Click to toggle';

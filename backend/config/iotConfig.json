@@ -19,7 +19,7 @@
                 ]
             },
             "data": {
-                "BatteryMonitor": {
+                "Sensor.BatteryMonitor": {
                     "voltage": {
                         "save": true,
                         "targetBoundaries": {
@@ -29,12 +29,12 @@
                     },
                     "voltageRaw": true
                 },
-                "SystemMonitor": {
+                "System.SystemMonitor": {
                     "uptime": true,
                     "largestBlock": true,
                     "loopDelay": true
                 },
-                "DeviceControl": {
+                "DeviceControl.PWM": {
                     "autoOffRemaining": true,
                     "isOn": true,
                     "percentage": true,
@@ -42,7 +42,7 @@
                     "fadeDuration": true,
                     "frequency": true
                 },
-                "RGBControl": {
+                "DeviceControl.RGB": {
                     "autoOffRemaining": true,
                     "isOn": true,
                     "percentage": true,
@@ -53,35 +53,20 @@
                     "fadeDuration": true,
                     "frequency": true
                 },
-                "DS18B20": {
+                "Sensor.DS18B20": {
                     "tempC": true
                 },
-                "DataExchanger": {
+                "System.DataExchanger": {
                     "trigger": true,
                     "interval": true
                 },
-                "CurrentReader": {
-                    "current_mA": {
-                        "save": true,
-                        "label": "Current (mA)"
-                    },
-                    "voltage_V": {
-                        "save": true,
-                        "label": "Voltage (V)"
-                    },
-                    "power_mW": {
-                        "save": true,
-                        "label": "Power (mW)"
-                    }, 
-                    "readingsCount": {
-                        "save": true
-                    },
-                    "interval": {
-                        "save": true
-                    },
-                    "bufferSize": {
-                        "save": true
-                    },
+                "Sensor.INA219": {
+                    "current_mA": true,
+                    "voltage_V": true,
+                    "power_mW": true,
+                    "readingsCount": true,
+                    "interval": true,
+                    "bufferSize": true,
                     "averagingSamples" : true,
                     "calibrationMode" : true
                 }
@@ -98,15 +83,15 @@
                 ]
             },
             "data": {
-                "DS18B20": {
+                "Sensor.DS18B20": {
                     "tempC": true
                 },
-                "SystemMonitor": {
+                "System.SystemMonitor": {
                     "largestBlock": true,
                     "uptime": true,
                     "loopDelay": true
                 },
-                "DataExchanger": {
+                "System.DataExchanger": {
                     "interval": true,
                     "trigger": true
                 }
@@ -123,27 +108,16 @@
                 ]
             },
             "data": {
-                "DS18B20": {
-                    "tempC": true,
-                    "tempCOffset": true
-                },
-                "SystemMonitor": {
+                "System.SystemMonitor": {
                     "largestBlock": true,
                     "uptime": true,
                     "loopDelay": true
                 },
-                "DataExchanger": {
+                "System.DataExchanger": {
                     "interval": true,
                     "trigger": true
                 },
-                "SHT31": {
-                    "tempC": true,
-                    "humidity": true,
-                    "interval": true,
-                    "tempCOffset": true,
-                    "humOffset": true
-                },
-                "RGBControl": {
+                "DeviceControl.RGB": {
                     "autoOffRemaining": true,
                     "isOn": true,
                     "percentage": true,
@@ -153,15 +127,32 @@
                     "autoOffTimer": true,
                     "fadeDuration": true,
                     "frequency": true
+                },
+                "Sensor.DS18B20": {
+                    "tempC": true,
+                    "tempCOffset": true
+                },
+                "Sensor.SHT31": {
+                    "tempC": true,
+                    "humidity": true,
+                    "interval": true,
+                    "tempCOffset": true,
+                    "humOffset": true
                 }
             }
         }
     },
     "deviceTypes": {
-        "DataExchanger": {
+        "System.DataExchanger": {
             "supportedCommands": {
                 "setInterval": "integer",
                 "setUrl": "string"
+            }
+        },
+        "System.SystemMonitor": {
+            "supportedCommands": {
+                "reboot": "boolean",
+                "setLoopDelay": "integer"
             }
         },
         "DeviceControl": {
@@ -177,7 +168,7 @@
                 
             }
         },
-        "RGBControl": {
+        "DeviceControl.RGB": {
             "supportedCommands": {
                 "setState": "boolean",
                 "toggleState": "boolean",
@@ -190,30 +181,39 @@
                 "setFadeDuration": "integer"
             }
         },
-        "SystemMonitor": {
-            "supportedCommands": {
-                "reboot": "boolean",
-                "setLoopDelay": "integer"
-            }
-        },
-        "CurrentReader": {
+        "Sensor.INA219": {
             "supportedCommands": {
                 "setBufferSize": "integer",
                 "setInterval": "integer",
                 "setAveragingSamples": "integer",
                 "setCalibrationMode": "integer"
+            },
+            "labels": {
+                "current_mA": "Current (mA)",
+                "voltage_V": "Voltage (V)",
+                "power_mW": "Power (mW)"
             }
         },
-        "SHT31": {
+        "Sensor.SHT31": {
             "supportedCommands": {
                 "setInterval": "integer",
                 "setTempCOffset": "float",
                 "setHumOffset": "float"
+            },
+            "labels": {
+                "tempC": "Temperature (°C)",
+                "humidity": "Humidity (%)",
+                "tempCOffset": "Temperature Offset (°C)",
+                "humOffset": "Humidity Offset (%)"
             }
         },
-        "DS18B20": {
+        "Sensor.DS18B20": {
             "supportedCommands": {
                 "setTempCOffset": "float"
+            },
+            "labels": {
+                "tempC": "Temperature (°C)",
+                "tempCOffset": "Temperature Offset (°C)"
             }
         }
     }

@@ -22,16 +22,27 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         // Extract deviceId from the first device of type SystemMonitor
         let deviceId;
-        for (const value of Object.values(data)) {
-            if (value && typeof value === 'object' && value.type === 'SystemMonitor' && value.deviceId) {
-                deviceId = value.deviceId;
-                break;
-            }
-        }
+        const isArray = Array.isArray(data);
 
-        // Fallback: if no id was found, see if there's on at the toplevel.
-        if (!deviceId) {
-            deviceId = data.deviceId;
+        if (isArray) {
+            for (const item of data) {
+                if (item.deviceId) {
+                    deviceId = item.deviceId;
+                    break;
+                }
+            }
+        } else {
+            for (const value of Object.values(data)) {
+                if (value && typeof value === 'object' && value.type === 'SystemMonitor' && value.deviceId) {
+                    deviceId = value.deviceId;
+                    break;
+                }
+            }
+
+            // Fallback: if no id was found, see if there's on at the toplevel.
+            if (!deviceId) {
+                deviceId = data.deviceId;
+            }
         }
 
         if (!deviceId) {
@@ -68,36 +79,65 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         };
 
         // Iterate over top-level keys to find typed objects
-        for (const [key, value] of Object.entries(data)) {
-            if (value && typeof value === "object") {
-                let configKey;
-                if (deviceConfig[key]) {
-                    configKey = key;
-                } else if (value.subType && deviceConfig[value.subType]) {
-                    configKey = value.subType;
-                } else if (value.type && deviceConfig[value.type]) {
-                    configKey = value.type;
-                }
+        if (isArray) {
+            for (const item of data) {
+                const { type, subtype, name } = item;
+                if (!type || !subtype || !name) continue;
 
-                if (configKey) {
+                const configKey = `${type}.${subtype}`;
+                const typeConfig = deviceConfig[configKey];
+
+                if (typeConfig) {
                     const extracted = {};
-                    const typeConfig = deviceConfig[configKey];
                     const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
 
                     fields.forEach((field) => {
                         const config = Array.isArray(typeConfig) ? true : typeConfig[field];
                         const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
-                        if (shouldSave && value[field] !== undefined) {
-                            extracted[field] = value[field];
+                        if (shouldSave && item[field] !== undefined) {
+                            extracted[field] = item[field];
                         }
                     });
 
                     if (Object.keys(extracted).length > 0) {
-                        const storageKey = value.type || configKey;
-                        if (!filteredData.data[storageKey]) {
-                            filteredData.data[storageKey] = {};
+                        if (!filteredData.data[type]) filteredData.data[type] = {};
+                        if (!filteredData.data[type][subtype]) filteredData.data[type][subtype] = {};
+                        filteredData.data[type][subtype][name] = extracted;
+                    }
+                }
+            }
+        } else {
+            for (const [key, value] of Object.entries(data)) {
+                if (value && typeof value === "object") {
+                    let configKey;
+                    if (deviceConfig[key]) {
+                        configKey = key;
+                    } else if (value.subType && deviceConfig[value.subType]) {
+                        configKey = value.subType;
+                    } else if (value.type && deviceConfig[value.type]) {
+                        configKey = value.type;
+                    }
+
+                    if (configKey) {
+                        const extracted = {};
+                        const typeConfig = deviceConfig[configKey];
+                        const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
+
+                        fields.forEach((field) => {
+                            const config = Array.isArray(typeConfig) ? true : typeConfig[field];
+                            const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
+                            if (shouldSave && value[field] !== undefined) {
+                                extracted[field] = value[field];
+                            }
+                        });
+
+                        if (Object.keys(extracted).length > 0) {
+                            const storageKey = value.type || configKey;
+                            if (!filteredData.data[storageKey]) {
+                                filteredData.data[storageKey] = {};
+                            }
+                            filteredData.data[storageKey][key] = extracted;
                         }
-                        filteredData.data[storageKey][key] = extracted;
                     }
                 }
             }
