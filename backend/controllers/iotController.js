@@ -6,9 +6,14 @@ import { broadcast } from './websocketService.js';
 import { fetchDeviceStats } from './frontendController.js';
 import { findDataKeys, getValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
+import * as woodstoveState from '../plugins/woodstoveState.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
+
+const availablePlugins = {
+    woodstoveState
+};
 
 export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
     try {
@@ -73,6 +78,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         }
 
         const deviceConfig = deviceSettings.data || {};
+        const pluginsConfig = deviceSettings.plugins || {};
 
         const filteredData = {
             data: {},
@@ -90,7 +96,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                 if (typeConfig) {
                     const extracted = {};
                     const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
-
+                    
                     fields.forEach((field) => {
                         const config = Array.isArray(typeConfig) ? true : typeConfig[field];
                         const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
@@ -100,6 +106,22 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                     });
 
                     if (Object.keys(extracted).length > 0) {
+                        // Check for and run plugins
+                        const pluginKeySpecific = `${type}.${subtype}.${name}`;
+                        const pluginKeyGeneric = `${type}.${subtype}`;
+                        const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
+
+                        if (pluginCfg && availablePlugins[pluginCfg.type]) {
+                            try {
+                                const result = await availablePlugins[pluginCfg.type].run(
+                                    extracted, type, subtype, name, getDb(), pluginCfg.options
+                                );
+                                if (result) Object.assign(extracted, result);
+                            } catch (e) {
+                                log.error(`Error running plugin ${pluginCfg.type} for ${deviceId}:`, e);
+                            }
+                        }
+
                         if (!filteredData.data[type]) filteredData.data[type] = {};
                         if (!filteredData.data[type][subtype]) filteredData.data[type][subtype] = {};
                         filteredData.data[type][subtype][name] = extracted;
@@ -132,6 +154,37 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                         });
 
                         if (Object.keys(extracted).length > 0) {
+                            // Determine type/subtype/name for plugin lookup
+                            let pType = value.type;
+                            let pSubtype = value.subType;
+                            const pName = key;
+
+                            // Fallback: try to infer type/subtype from configKey if it follows "Type.Subtype" format
+                            if ((!pType || !pSubtype) && configKey && configKey.includes('.')) {
+                                const parts = configKey.split('.');
+                                if (parts.length === 2) {
+                                    if (!pType) pType = parts[0];
+                                    if (!pSubtype) pSubtype = parts[1];
+                                }
+                            }
+
+                            if (pType && pSubtype) {
+                                const pluginKeySpecific = `${pType}.${pSubtype}.${pName}`;
+                                const pluginKeyGeneric = `${pType}.${pSubtype}`;
+                                const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
+
+                                if (pluginCfg && availablePlugins[pluginCfg.type]) {
+                                    try {
+                                        const result = await availablePlugins[pluginCfg.type].run(
+                                            extracted, pType, pSubtype, pName, getDb(), pluginCfg.options
+                                        );
+                                        if (result) Object.assign(extracted, result);
+                                    } catch (e) {
+                                        log.error(`Error running plugin ${pluginCfg.type} for ${deviceId}:`, e);
+                                    }
+                                }
+                            }
+
                             const storageKey = value.type || configKey;
                             if (!filteredData.data[storageKey]) {
                                 filteredData.data[storageKey] = {};

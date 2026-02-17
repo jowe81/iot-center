@@ -130,7 +130,8 @@
                 },
                 "Sensor.DS18B20": {
                     "tempC": true,
-                    "tempCOffset": true
+                    "tempCOffset": true,
+                    "operatingMode": true
                 },
                 "Sensor.SHT31": {
                     "tempC": true,
@@ -138,6 +139,12 @@
                     "interval": true,
                     "tempCOffset": true,
                     "humOffset": true
+                }
+            },
+            "plugins": {
+                "Sensor.DS18B20.temp1": {
+                    "type": "woodstoveState",
+                    "options": {}
                 }
             }
         }
