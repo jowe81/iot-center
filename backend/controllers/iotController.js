@@ -112,9 +112,17 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                         const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
 
                         if (pluginCfg && availablePlugins[pluginCfg.type]) {
+                            const fieldKeys = [];
+                            if (!Array.isArray(typeConfig)) {
+                                for (const [k, v] of Object.entries(typeConfig)) {
+                                    if (v === pluginCfg.type) {
+                                        fieldKeys.push(k);
+                                    }
+                                }
+                            }
                             try {
                                 const result = await availablePlugins[pluginCfg.type].run(
-                                    extracted, type, subtype, name, getDb(), pluginCfg.options
+                                    extracted, type, subtype, name, getDb(), pluginCfg.options, fieldKeys
                                 );
                                 if (result) Object.assign(extracted, result);
                             } catch (e) {
@@ -174,9 +182,17 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
                                 const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
 
                                 if (pluginCfg && availablePlugins[pluginCfg.type]) {
+                                    const fieldKeys = [];
+                                    if (!Array.isArray(typeConfig)) {
+                                        for (const [k, v] of Object.entries(typeConfig)) {
+                                            if (v === pluginCfg.type) {
+                                                fieldKeys.push(k);
+                                            }
+                                        }
+                                    }
                                     try {
                                         const result = await availablePlugins[pluginCfg.type].run(
-                                            extracted, pType, pSubtype, pName, getDb(), pluginCfg.options
+                                            extracted, pType, pSubtype, pName, getDb(), pluginCfg.options, fieldKeys
                                         );
                                         if (result) Object.assign(extracted, result);
                                     } catch (e) {

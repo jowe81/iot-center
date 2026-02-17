@@ -131,7 +131,7 @@
                 "Sensor.DS18B20": {
                     "tempC": true,
                     "tempCOffset": true,
-                    "operatingMode": true
+                    "operatingMode": "woodstoveState"
                 },
                 "Sensor.SHT31": {
                     "tempC": true,
