@@ -19,7 +19,7 @@
                 ]
             },
             "data": {
-                "Sensor.BatteryMonitor": {
+                "System.BatteryMonitor": {
                     "voltage": {
                         "save": true,
                         "targetBoundaries": {
@@ -27,14 +27,16 @@
                             "high": 12.8
                         }
                     },
-                    "voltageRaw": true
+                    "voltageRaw": true,
+                    "adjustment": true
                 },
                 "System.SystemMonitor": {
                     "uptime": true,
+                    "rssi": true,
                     "largestBlock": true,
                     "loopDelay": true
                 },
-                "DeviceControl.PWM": {
+                "DeviceControl.Relay": {
                     "autoOffRemaining": true,
                     "isOn": true,
                     "percentage": true,
@@ -69,6 +71,15 @@
                     "bufferSize": true,
                     "averagingSamples" : true,
                     "calibrationMode" : true
+                },
+                "Sensor.BME280": {
+                    "pressure": true,
+                    "humidity": true,
+                    "temperature": true,
+                    "pressOffset": true,
+                    "humOffset": true,
+                    "tempCOffset": true,
+                    "interval": true
                 }
             }
         },
@@ -84,7 +95,16 @@
             },
             "data": {
                 "Sensor.DS18B20": {
-                    "tempC": true
+                    "tempC": true,
+                    "tempCOffset": true,
+                    "operatingMode": "woodstoveState"
+                },
+                "Sensor.SHT31": {
+                    "tempC": true,
+                    "humidity": true,
+                    "interval": true,
+                    "tempCOffset": true,
+                    "humOffset": true
                 },
                 "System.SystemMonitor": {
                     "largestBlock": true,
@@ -94,6 +114,12 @@
                 "System.DataExchanger": {
                     "interval": true,
                     "trigger": true
+                }
+            },
+            "plugins": {
+                "Sensor.DS18B20.temp1": {
+                    "type": "woodstoveState",
+                    "options": {}
                 }
             }
         },
@@ -130,8 +156,7 @@
                 },
                 "Sensor.DS18B20": {
                     "tempC": true,
-                    "tempCOffset": true,
-                    "operatingMode": "woodstoveState"
+                    "tempCOffset": true
                 },
                 "Sensor.SHT31": {
                     "tempC": true,
@@ -139,12 +164,6 @@
                     "interval": true,
                     "tempCOffset": true,
                     "humOffset": true
-                }
-            },
-            "plugins": {
-                "Sensor.DS18B20.temp1": {
-                    "type": "woodstoveState",
-                    "options": {}
                 }
             }
         }
@@ -160,6 +179,11 @@
             "supportedCommands": {
                 "reboot": "boolean",
                 "setLoopDelay": "integer"
+            }
+        },
+        "System.BatteryMonitor": {
+            "supportedCommands": {
+                "setAdjustment": "float"
             }
         },
         "DeviceControl": {
@@ -221,6 +245,21 @@
             "labels": {
                 "tempC": "Temperature (°C)",
                 "tempCOffset": "Temperature Offset (°C)"
+            }
+        },
+        "Sensor.BME280": {
+            "supportedCommands": {
+                "setInterval": "integer",
+                "setTempCOffset": "float",
+                "setHumOffset": "float",
+                "setPressOffset": "float"
+            },
+            "labels": {
+                "tempC": "Temperature (°C)",
+                "humidity": "Humidity (%)",
+                "tempCOffset": "Temperature Offset (°C)",
+                "humOffset": "Humidity Offset (%)",
+                "pressOffset": "Pressure Offset (hPa)"
             }
         }
     }
