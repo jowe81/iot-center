@@ -9,6 +9,19 @@ export const getValue = (doc, path) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], doc);
 };
 
+export const setValue = (obj, path, value) => {
+    const keys = Array.isArray(path) ? path : path.split('.');
+    let current = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (!current[key] || typeof current[key] !== 'object') {
+            current[key] = {};
+        }
+        current = current[key];
+    }
+    current[keys[keys.length - 1]] = value;
+};
+
 export const findDataKeys = (obj, prefix = '') => {
     const keys = [];
     const traverse = (o, p) => {

@@ -4,15 +4,190 @@ import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
 import { broadcast } from './websocketService.js';
 import { fetchDeviceStats } from './frontendController.js';
-import { findDataKeys, getValue, isRedundant } from '../utils/dataUtils.js';
+import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
 import * as woodstoveState from '../plugins/woodstoveState.js';
+import * as batteryCharge from '../plugins/batteryCharge.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
 
 const availablePlugins = {
-    woodstoveState
+    woodstoveState,
+    batteryCharge
+};
+
+// --- Helper Functions ---
+
+const extractDeviceId = (data) => {
+    if (Array.isArray(data)) {
+        for (const item of data) {
+            if (item.deviceId) return item.deviceId;
+        }
+    } else {
+        // Check for SystemMonitor in object values
+        for (const value of Object.values(data)) {
+            if (value && typeof value === 'object' && value.type === 'SystemMonitor' && value.deviceId) {
+                return value.deviceId;
+            }
+        }
+        // Fallback to top-level
+        if (data.deviceId) return data.deviceId;
+    }
+    return null;
+};
+
+const validateDevice = (deviceId, protocol) => {
+    const deviceSettings = iotConfig.devices?.[deviceId];
+    if (!deviceSettings) {
+        return { valid: false, error: "Unknown device", statusCode: 200 }; // 200 to ignore silently-ish
+    }
+
+    if (deviceSettings.network && deviceSettings.network.protocol) {
+        const configuredProtocols = Array.isArray(deviceSettings.network.protocol)
+            ? deviceSettings.network.protocol
+            : [deviceSettings.network.protocol];
+
+        if (protocol !== 'UNKNOWN' && !configuredProtocols.includes(protocol.toLowerCase())) {
+            return { valid: false, error: "Protocol not allowed", statusCode: 403 };
+        }
+    }
+    return { valid: true, settings: deviceSettings };
+};
+
+const processIncomingData = (data, deviceConfig) => {
+    const filteredData = { data: {} };
+    const pluginsToRun = [];
+
+    const processItem = (item, type, subtype, name) => {
+        if (!type || !subtype || !name) return;
+
+        // Handle Wildcards: Check "Type.Subtype" then "Type.Subtype.*"
+        // Order of precedence: Type.Subtype.Name, then Type.Subtype.*, then Type.Subtype
+        const specificConfigKey = `${type}.${subtype}.${name}`;
+        const typeConfig = deviceConfig[specificConfigKey] || deviceConfig[`${type}.${subtype}.*`] || deviceConfig[`${type}.${subtype}`];
+
+        if (!typeConfig) return;
+
+        // Ensure structure exists
+        if (!filteredData.data[type]) filteredData.data[type] = {};
+        if (!filteredData.data[type][subtype]) filteredData.data[type][subtype] = {};
+        if (!filteredData.data[type][subtype][name]) filteredData.data[type][subtype][name] = {};
+
+        const componentData = filteredData.data[type][subtype][name];
+
+        for (const [field, config] of Object.entries(typeConfig)) {
+            // 1. Check for Plugin Configuration
+            if (config && typeof config === 'object' && config.plugin) {
+                pluginsToRun.push({
+                    pluginName: config.plugin,
+                    outputKey: `data.${type}.${subtype}.${name}.${field}`,
+                    config: config
+                });
+            }
+            // 2. Check for Standard Data Field
+            else {
+                const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
+                if (shouldSave && item[field] !== undefined) {
+                    componentData[field] = item[field];
+                }
+            }
+        }
+    };
+
+    if (Array.isArray(data)) {
+        for (const item of data) {
+            processItem(item, item.type, item.subtype, item.name);
+        }
+    } else {
+        for (const [key, value] of Object.entries(data)) {
+            if (value && typeof value === 'object') {
+                const type = value.type;
+                const subtype = value.subType || value.subtype;
+                processItem(value, type, subtype, key);
+            }
+        }
+    }
+
+    return { filteredData, pluginsToRun };
+};
+
+const executePlugins = async (pluginsToRun, filteredData, deviceId) => {
+    const db = getDb();
+    const collection = db.collection(`device_${deviceId}`);
+    const lastRecord = await collection.findOne({}, { sort: { receivedAt: -1 } });
+
+    for (const task of pluginsToRun) {
+        const plugin = availablePlugins[task.pluginName];
+        if (plugin && plugin.run) {
+            try {
+                const inputs = {};
+                if (task.config.inputKeys) {
+                    for (const inputKey of task.config.inputKeys) {
+                        // Map "Sensor.Type..." to "data.Sensor.Type..." for getValue lookup
+                        inputs[inputKey] = getValue(filteredData, `data.${inputKey}`);
+                    }
+                }
+
+                const pluginOutputKey = task.outputKey.replace(/^data\./, '');
+                
+                let previousValue = undefined;
+                if (lastRecord) {
+                    const storedValue = getValue(lastRecord, task.outputKey);
+                    if (storedValue !== undefined && storedValue !== null) {
+                        if (task.config.outputScale && typeof storedValue === 'number') {
+                            previousValue = storedValue / task.config.outputScale;
+                        } else {
+                            previousValue = storedValue;
+                        }
+                    }
+                }
+
+                let result = await plugin.run(deviceId, filteredData, inputs, pluginOutputKey, task.config.options || {}, getDb(), lastRecord, previousValue);
+
+                if (result !== undefined) {
+                    if (task.config.outputScale && typeof result === 'number') {
+                        result *= task.config.outputScale;
+                    }
+                    setValue(filteredData, task.outputKey, result);
+                }
+            } catch (e) {
+                log.error(`Error running plugin ${task.pluginName} for ${deviceId}:`, e);
+            }
+        }
+    }
+};
+
+const saveAndBroadcast = async (deviceId, filteredData, rawData, protocol) => {
+    const db = getDb();
+    const collection = db.collection(`device_${deviceId}`);
+    
+    // Save to DB
+    await collection.insertOne(filteredData);
+
+    // Post-processing: Redundancy Check
+    const keysToCheck = findDataKeys(filteredData);
+    for (const key of keysToCheck) {
+        const lastThree = await collection.find(
+            { [key]: { $exists: true } },
+            { projection: { [key]: 1 }, sort: { receivedAt: -1 }, limit: 3 }
+        ).toArray();
+
+        if (lastThree.length === 3) {
+            const [c, b, a] = lastThree;
+            if (isRedundant(getValue(a, key), getValue(b, key), getValue(c, key))) {
+                await collection.updateOne({ _id: b._id }, { $unset: { [key]: "" } });
+            }
+        }
+    }
+
+    log.info(`[${protocol}] Data recorded for device: ${deviceId}`);
+
+    // Broadcast
+    broadcast('LATEST', { deviceId, payload: filteredData });
+    broadcast('LATEST_RAW', { deviceId, payload: rawData });
+    const stats = await fetchDeviceStats(deviceId);
+    broadcast('STATS', { deviceId, payload: stats });
 };
 
 export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
@@ -25,31 +200,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
             }
         }
 
-        // Extract deviceId from the first device of type SystemMonitor
-        let deviceId;
-        const isArray = Array.isArray(data);
-
-        if (isArray) {
-            for (const item of data) {
-                if (item.deviceId) {
-                    deviceId = item.deviceId;
-                    break;
-                }
-            }
-        } else {
-            for (const value of Object.values(data)) {
-                if (value && typeof value === 'object' && value.type === 'SystemMonitor' && value.deviceId) {
-                    deviceId = value.deviceId;
-                    break;
-                }
-            }
-
-            // Fallback: if no id was found, see if there's on at the toplevel.
-            if (!deviceId) {
-                deviceId = data.deviceId;
-            }
-        }
-
+        const deviceId = extractDeviceId(data);
         if (!deviceId) {
             log.info(`[${protocol}] Received data from unknown device without an id. Ignoring.`);
             return { statusCode: 400, payload: "Missing deviceId" };
@@ -58,189 +209,26 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         // Save raw data in memory
         saveRawData(deviceId, data);
 
-        // Select configuration for this device
-        const deviceSettings = iotConfig.devices?.[deviceId];
-        if (!deviceSettings) {
-            log.info(`[${protocol}] Received data from unknown device with id: ${deviceId}. Ignoring.`);
-            return { statusCode: 200, payload: { status: "Ignored", message: "Unknown device" } };
+        // Validate Device and Protocol
+        const validation = validateDevice(deviceId, protocol);
+        if (!validation.valid) {
+            log.info(`[${protocol}] ${validation.error} for id: ${deviceId}. Ignoring.`);
+            return { statusCode: validation.statusCode, payload: validation.error };
         }
+        const deviceSettings = validation.settings;
 
-        // Check if the protocol is allowed for this device
-        if (deviceSettings.network && deviceSettings.network.protocol) {
-            const configuredProtocols = Array.isArray(deviceSettings.network.protocol)
-                ? deviceSettings.network.protocol
-                : [deviceSettings.network.protocol];
-
-            if (protocol !== 'UNKNOWN' && !configuredProtocols.includes(protocol.toLowerCase())) {
-                log.info(`[${protocol}] Protocol not allowed for device ${deviceId}.`);
-                return { statusCode: 403, payload: "Protocol not allowed" };
-            }
-        }
-
-        const deviceConfig = deviceSettings.data || {};
-        const pluginsConfig = deviceSettings.plugins || {};
-
-        const filteredData = {
-            data: {},
-        };
-
-        // Iterate over top-level keys to find typed objects
-        if (isArray) {
-            for (const item of data) {
-                const { type, subtype, name } = item;
-                if (!type || !subtype || !name) continue;
-
-                const configKey = `${type}.${subtype}`;
-                const typeConfig = deviceConfig[configKey];
-
-                if (typeConfig) {
-                    const extracted = {};
-                    const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
-                    
-                    fields.forEach((field) => {
-                        const config = Array.isArray(typeConfig) ? true : typeConfig[field];
-                        const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
-                        if (shouldSave && item[field] !== undefined) {
-                            extracted[field] = item[field];
-                        }
-                    });
-
-                    if (Object.keys(extracted).length > 0) {
-                        // Check for and run plugins
-                        const pluginKeySpecific = `${type}.${subtype}.${name}`;
-                        const pluginKeyGeneric = `${type}.${subtype}`;
-                        const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
-
-                        if (pluginCfg && availablePlugins[pluginCfg.type]) {
-                            const fieldKeys = [];
-                            if (!Array.isArray(typeConfig)) {
-                                for (const [k, v] of Object.entries(typeConfig)) {
-                                    if (v === pluginCfg.type) {
-                                        fieldKeys.push(k);
-                                    }
-                                }
-                            }
-                            try {
-                                const result = await availablePlugins[pluginCfg.type].run(
-                                    extracted, type, subtype, name, getDb(), pluginCfg.options, fieldKeys
-                                );
-                                if (result) Object.assign(extracted, result);
-                            } catch (e) {
-                                log.error(`Error running plugin ${pluginCfg.type} for ${deviceId}:`, e);
-                            }
-                        }
-
-                        if (!filteredData.data[type]) filteredData.data[type] = {};
-                        if (!filteredData.data[type][subtype]) filteredData.data[type][subtype] = {};
-                        filteredData.data[type][subtype][name] = extracted;
-                    }
-                }
-            }
-        } else {
-            for (const [key, value] of Object.entries(data)) {
-                if (value && typeof value === "object") {
-                    let configKey;
-                    if (deviceConfig[key]) {
-                        configKey = key;
-                    } else if (value.subType && deviceConfig[value.subType]) {
-                        configKey = value.subType;
-                    } else if (value.type && deviceConfig[value.type]) {
-                        configKey = value.type;
-                    }
-
-                    if (configKey) {
-                        const extracted = {};
-                        const typeConfig = deviceConfig[configKey];
-                        const fields = Array.isArray(typeConfig) ? typeConfig : Object.keys(typeConfig);
-
-                        fields.forEach((field) => {
-                            const config = Array.isArray(typeConfig) ? true : typeConfig[field];
-                            const shouldSave = config === true || (config && typeof config === 'object' && config.save === true);
-                            if (shouldSave && value[field] !== undefined) {
-                                extracted[field] = value[field];
-                            }
-                        });
-
-                        if (Object.keys(extracted).length > 0) {
-                            // Determine type/subtype/name for plugin lookup
-                            let pType = value.type;
-                            let pSubtype = value.subType;
-                            const pName = key;
-
-                            // Fallback: try to infer type/subtype from configKey if it follows "Type.Subtype" format
-                            if ((!pType || !pSubtype) && configKey && configKey.includes('.')) {
-                                const parts = configKey.split('.');
-                                if (parts.length === 2) {
-                                    if (!pType) pType = parts[0];
-                                    if (!pSubtype) pSubtype = parts[1];
-                                }
-                            }
-
-                            if (pType && pSubtype) {
-                                const pluginKeySpecific = `${pType}.${pSubtype}.${pName}`;
-                                const pluginKeyGeneric = `${pType}.${pSubtype}`;
-                                const pluginCfg = pluginsConfig[pluginKeySpecific] || pluginsConfig[pluginKeyGeneric];
-
-                                if (pluginCfg && availablePlugins[pluginCfg.type]) {
-                                    const fieldKeys = [];
-                                    if (!Array.isArray(typeConfig)) {
-                                        for (const [k, v] of Object.entries(typeConfig)) {
-                                            if (v === pluginCfg.type) {
-                                                fieldKeys.push(k);
-                                            }
-                                        }
-                                    }
-                                    try {
-                                        const result = await availablePlugins[pluginCfg.type].run(
-                                            extracted, pType, pSubtype, pName, getDb(), pluginCfg.options, fieldKeys
-                                        );
-                                        if (result) Object.assign(extracted, result);
-                                    } catch (e) {
-                                        log.error(`Error running plugin ${pluginCfg.type} for ${deviceId}:`, e);
-                                    }
-                                }
-                            }
-
-                            const storageKey = value.type || configKey;
-                            if (!filteredData.data[storageKey]) {
-                                filteredData.data[storageKey] = {};
-                            }
-                            filteredData.data[storageKey][key] = extracted;
-                        }
-                    }
-                }
-            }
-        }
-
+        // Process Data
+        const { filteredData, pluginsToRun } = processIncomingData(data, deviceSettings.data || {});
+        
         // Add a timestamp automatically
         filteredData.receivedAt = new Date();
         filteredData.protocol = protocol.toLowerCase();
 
-        // Store in collection for this device.
-        const db = getDb();
-        const collection = db.collection(`device_${deviceId}`);
-        await collection.insertOne(filteredData);
+        // Run Plugins
+        await executePlugins(pluginsToRun, filteredData, deviceId);
 
-        // Post-processing: Remove redundant data from the previous record
-        const keysToCheck = findDataKeys(filteredData);
-        
-        for (const key of keysToCheck) {
-            const lastThree = await collection.find(
-                { [key]: { $exists: true } },
-                { projection: { [key]: 1 }, sort: { receivedAt: -1 }, limit: 3 }
-            ).toArray();
-
-            if (lastThree.length === 3) {
-                const [c, b, a] = lastThree;
-                const valC = getValue(c, key);
-                const valB = getValue(b, key);
-                const valA = getValue(a, key);
-
-                if (isRedundant(valA, valB, valC)) {
-                    await collection.updateOne({ _id: b._id }, { $unset: { [key]: "" } });
-                }
-            }
-        }
+        // Save and Broadcast
+        await saveAndBroadcast(deviceId, filteredData, data, protocol);
 
         const responsePayload = { status: "Recorded", collection: `device_${deviceId}`, deviceId };
         
@@ -250,14 +238,6 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
             Object.assign(responsePayload, commands);
             log.info(`Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
         }
-
-        log.info(`[${protocol}] Data recorded for device: ${deviceId}`);
-        
-        // Broadcast updates via WebSocket
-        broadcast('LATEST', { deviceId, payload: filteredData });
-        broadcast('LATEST_RAW', { deviceId, payload: data });
-        const stats = await fetchDeviceStats(deviceId);
-        broadcast('STATS', { deviceId, payload: stats });
 
         return { statusCode: 201, payload: responsePayload, commands, deviceId };
     } catch (error) {

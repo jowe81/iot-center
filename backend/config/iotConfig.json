@@ -19,7 +19,7 @@
                 ]
             },
             "data": {
-                "System.BatteryMonitor": {
+                "System.BatteryMonitor.*": {
                     "voltage": {
                         "save": true,
                         "targetBoundaries": {
@@ -28,7 +28,14 @@
                         }
                     },
                     "voltageRaw": true,
-                    "adjustment": true
+                    "adjustment": true,
+                    "netCharge_Wh": {
+                        "plugin": "batteryCharge",
+                        "inputKeys": ["Sensor.INA219.chargeMeter.power_mW"],
+                        "options": {
+                        },
+                        "outputScale": 0.001
+                    }
                 },
                 "System.SystemMonitor": {
                     "uptime": true,
@@ -94,10 +101,13 @@
                 ]
             },
             "data": {
-                "Sensor.DS18B20": {
+                "Sensor.DS18B20.*": {
                     "tempC": true,
                     "tempCOffset": true,
-                    "operatingMode": "woodstoveState"
+                    "woodstoveState": {
+                        "plugin": "woodstoveState",
+                        "inputKeys": ["Sensor.DS18B20.woodstove.tempC"]
+                    }
                 },
                 "Sensor.SHT31": {
                     "tempC": true,
@@ -114,12 +124,6 @@
                 "System.DataExchanger": {
                     "interval": true,
                     "trigger": true
-                }
-            },
-            "plugins": {
-                "Sensor.DS18B20.temp1": {
-                    "type": "woodstoveState",
-                    "options": {}
                 }
             }
         },
@@ -184,6 +188,9 @@
         "System.BatteryMonitor": {
             "supportedCommands": {
                 "setAdjustment": "float"
+            },
+            "labels": {
+                "netCharge_Wh": "Net Charge (Wh)"
             }
         },
         "DeviceControl": {
