@@ -28,8 +28,8 @@ async function loadStatus() {
             
             const idCell = document.createElement('td');
             const link = document.createElement('a');
-            link.href = `graph.html?deviceId=${status.deviceId}`;
-            link.textContent = status.deviceId;
+            link.href = `manager.html?deviceId=${status.deviceId}`;
+            link.textContent = status.name && status.name !== status.deviceId ? `${status.name} (${status.deviceId})` : status.deviceId;
             idCell.appendChild(link);
             
             const timeCell = document.createElement('td');

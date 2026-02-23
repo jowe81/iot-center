@@ -341,8 +341,13 @@ export const getDeviceStatus = async (req, res) => {
             const deviceId = c.name.replace('device_', '');
             const collection = db.collection(c.name);
             const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1 } });
+            
+            const config = iotConfig.devices?.[deviceId];
+            const name = config?.meta?.name || deviceId;
+
             return {
                 deviceId,
+                name,
                 lastSeen: lastDoc ? lastDoc.receivedAt : null
             };
         });
@@ -391,6 +396,23 @@ export const getDeviceConfig = async (req, res) => {
         const { deviceId } = req.params;
         const deviceSettings = iotConfig.devices?.[deviceId];
         res.json(deviceSettings?.data || {});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getSchedules = async (req, res) => {
+    try {
+        const { deviceId } = req.query;
+        let schedules = iotConfig.schedules || [];
+        
+        if (deviceId) {
+            schedules = schedules.filter(s => 
+                s.targets && s.targets.some(t => t.deviceId === deviceId)
+            );
+        }
+        
+        res.json(schedules);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

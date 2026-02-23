@@ -12,5 +12,6 @@ router.get('/device/:deviceId/latest', frontendController.getLatestData);
 router.get('/commands/definitions', frontendController.getCommandDefinitions);
 router.post('/commands/queue', frontendController.queueCommand);
 router.get('/device/:deviceId/config', frontendController.getDeviceConfig);
+router.get('/schedules', frontendController.getSchedules);
 
 export default router;

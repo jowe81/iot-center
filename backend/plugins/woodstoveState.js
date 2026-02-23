@@ -5,14 +5,16 @@
 import { getValue } from '../utils/dataUtils.js';
 import log from '../utils/logger.js';
 
+const LOG_TAG = '[Plugin: WoodstoveState]';
+
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
     const doLog = options.log === true;
-    if (doLog) log.debug(`woodstoveState plugin running for ${deviceId}`);
+    if (doLog) log.debug(`${LOG_TAG} Plugin running for ${deviceId}`);
 
     // inputs contains values for keys defined in config
     const inputKeys = Object.keys(inputs);
     if (inputKeys.length === 0) {
-        if (doLog) log.debug('woodstoveState: No input keys, returning "off"');
+        if (doLog) log.debug(`${LOG_TAG} No input keys, returning "off"`);
         return "off";
     }
 
@@ -21,13 +23,13 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const currentTemp = inputs[tempKey];
 
     if (typeof currentTemp !== 'number') {
-        if (doLog) log.debug(`woodstoveState: currentTemp is not a number (${currentTemp}), returning "off"`);
+        if (doLog) log.debug(`${LOG_TAG} currentTemp is not a number (${currentTemp}), returning "off"`);
         return "off";
     }
 
     let previousState = previousValue || 'off';
     previousState = previousState.toLowerCase();
-    if (doLog) log.debug(`woodstoveState: currentTemp=${currentTemp}, previousState=${previousState}`);
+    if (doLog) log.debug(`${LOG_TAG} currentTemp=${currentTemp}, previousState=${previousState}`);
 
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
@@ -91,7 +93,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Calculate Max Temp in the history window (local peak)
     const maxTemp = Math.max(...points.map(p => p.val));
-    if (doLog) log.debug(`woodstoveState: slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}`);
+    if (doLog) log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}`);
 
     let newState = previousState;
 
@@ -136,7 +138,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     }
 
     if (doLog && newState !== previousState) {
-        log.debug(`woodstoveState: State change from ${previousState} to ${newState}`);
+        log.debug(`${LOG_TAG} State change from ${previousState} to ${newState}`);
     }
 
     return newState;

@@ -192,15 +192,27 @@ const saveAndBroadcast = async (deviceId, filteredData, rawData, protocol) => {
 
 export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
     try {
+        const deviceId = extractDeviceId(data);
+
         // Check for acknowledgement in the payload
-        if (data._ack) {
-            const acknowledged = await acknowledgeCommands(data._ack);
-            if (acknowledged.length > 0) {
-                log.info(`[${protocol}] Acknowledged commands: ${acknowledged.join(', ')}`);
+        let ackIds = data._ack;
+        if (!ackIds) {
+            const items = Array.isArray(data) ? data : Object.values(data);
+            for (const item of items) {
+                if (item && typeof item === 'object' && (item.type === 'DataExchanger' || item.subtype === 'DataExchanger' || item.subType === 'DataExchanger') && item._ack) {
+                    ackIds = item._ack;
+                    break;
+                }
             }
         }
 
-        const deviceId = extractDeviceId(data);
+        if (ackIds) {
+            const acknowledged = await acknowledgeCommands(ackIds);
+            if (acknowledged.length > 0) {
+                log.info(`[${protocol}] Device ${deviceId || 'unknown'} acknowledged commands: ${acknowledged.join(', ')}`);
+            }
+        }
+
         if (!deviceId) {
             log.info(`[${protocol}] Received data from unknown device without an id. Ignoring.`);
             return { statusCode: 400, payload: "Missing deviceId" };
@@ -236,7 +248,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         if (Object.keys(commands).length > 0) {
             Object.assign(responsePayload, commands);
-            log.info(`Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
+            log.info(`[CommandQueue]Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
         }
 
         return { statusCode: 201, payload: responsePayload, commands, deviceId };

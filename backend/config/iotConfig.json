@@ -1,5 +1,15 @@
 {
     "system": {
+        "http": {
+            "port": 8101
+        },
+        "scheduler": {
+            "log": false
+        },
+        "location": {
+            "latitude": 55.3244,
+            "longitude": -123.0928
+        },
         "mqtt": {
             "brokerUrl": "http://server.wnet.wn",
             "brokerPort": 1883,
@@ -7,6 +17,74 @@
             "password": null
         }
     },
+    "schedules": [
+        {
+            "name": "Ambient Glow After Sunset",
+            "enabled": true,
+            "trigger": {
+                "type": "celestial",
+                "event": "sunset",
+                "offsetMinutes": 45
+            },
+            "targets": [
+                {
+                    "deviceId": "woodshed_01",
+                    "subDevice": "rgbStrip",
+                    "command": "setState",
+                    "argument": true
+                }
+            ]
+        },
+        {
+            "name": "Midnight Shutdown",
+            "enabled": true,
+            "trigger": {
+                "type": "daily",
+                "time": "23:55"
+            },
+            "targets": [
+                {
+                    "deviceId": "woodshed_01",
+                    "subDevice": "rgbStrip",
+                    "command": "setState",
+                    "argument": false
+                }
+            ]
+        },
+        {
+            "name": "Woodrack Lights after Sunset",
+            "enabled": true,
+            "trigger": {
+                "type": "celestial",
+                "event": "sunset",
+                "offsetMinutes": 45
+            },
+            "targets": [
+                {
+                    "deviceId": "livingroom_01",
+                    "subDevice": "woodRackLights",
+                    "command": "setState",
+                    "argument": true
+                }
+            ]
+        },
+        {
+            "name": "Nightly Shutdown",
+            "enabled": true,
+            "trigger": {
+                "type": "daily",
+                "time": "22:30"
+            },
+            "targets": [
+                {
+                    "deviceId": "livingroom_01",
+                    "subDevice": "woodRackLights",
+                    "command": "setState",
+                    "argument": false
+                }
+            ]
+        }
+    ],
     "devices": {
         "woodshed_01": {
             "meta": {
@@ -108,7 +186,7 @@
                         "plugin": "woodstoveState",
                         "inputKeys": ["Sensor.DS18B20.woodstove.tempC"],
                         "options": {
-                            "log": true
+                            "log": false
                         }
                     }
                 },

@@ -5,14 +5,16 @@
 import { getValue } from '../utils/dataUtils.js';
 import log from '../utils/logger.js';
 
+const LOG_TAG = '[Plugin: BatteryCharge]';
+
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
     const doLog = options.log === true;
-    if (doLog) log.debug(`batteryCharge plugin running for ${deviceId}`);
+    if (doLog) log.debug(`${LOG_TAG} plugin running for ${deviceId}`);
 
     // inputs contains values for keys defined in config, e.g. { "Sensor.INA219.chargeMeter.power_mW": 1234 }
     const inputKeys = Object.keys(inputs);
     if (inputKeys.length === 0) {
-        if (doLog) log.debug('batteryCharge: No input keys, returning 0');
+        if (doLog) log.debug(`${LOG_TAG} No input keys, returning 0`);
         return 0;
     }
     
@@ -21,12 +23,12 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const currentPower_mW = inputs[powerKey];
 
     if (typeof currentPower_mW !== 'number') {
-        if (doLog) log.debug(`batteryCharge: currentPower_mW is not a number (${currentPower_mW}), returning 0`);
+        if (doLog) log.debug(`${LOG_TAG} currentPower_mW is not a number (${currentPower_mW}), returning 0`);
         return 0;
     }
 
     if (!lastRecord) {
-        if (doLog) log.debug('batteryCharge: No lastRecord, initializing at 0');
+        if (doLog) log.debug(`${LOG_TAG} No lastRecord, initializing at 0`);
         return 0; // Initialize at 0 if no history
     }
 
@@ -45,10 +47,10 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const result = previousNetCharge + energyDelta_mWh;
 
     if (doLog) {
-        log.debug(`batteryCharge: currentPower_mW=${currentPower_mW}, previousPower_mW=${previousPower_mW}`);
-        log.debug(`batteryCharge: timeDiffHours=${timeDiffHours.toFixed(4)}, avgPower_mW=${avgPower_mW}`);
-        log.debug(`batteryCharge: energyDelta_mWh=${energyDelta_mWh.toFixed(4)}`);
-        log.debug(`batteryCharge: previousNetCharge=${previousNetCharge.toFixed(4)}, newNetCharge=${result.toFixed(4)}`);
+        log.debug(`${LOG_TAG} currentPower_mW=${currentPower_mW}, previousPower_mW=${previousPower_mW}`);
+        log.debug(`${LOG_TAG} timeDiffHours=${timeDiffHours.toFixed(4)}, avgPower_mW=${avgPower_mW}`);
+        log.debug(`${LOG_TAG} energyDelta_mWh=${energyDelta_mWh.toFixed(4)}`);
+        log.debug(`${LOG_TAG} previousNetCharge=${previousNetCharge.toFixed(4)}, newNetCharge=${result.toFixed(4)}`);
     }
 
     return result;

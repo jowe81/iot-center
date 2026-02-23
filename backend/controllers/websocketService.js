@@ -5,11 +5,11 @@ import { fetchDeviceStats, fetchLatestData, fetchDeviceData, fetchLatestRawData,
 let wss;
 
 export const initWebSocket = (server) => {
-    log.info('Initializing WebSocket Server');
+    log.info('[WS] Initializing Socket Server');
     wss = new WebSocketServer({ server });
 
     wss.on('connection', (ws) => {
-        log.info('WS Client connected');
+        log.info('[WS] Client connected');
 
         ws.on('message', async (message) => {
             try {
@@ -32,12 +32,12 @@ export const initWebSocket = (server) => {
                     ws.send(JSON.stringify({ type: 'GRAPH', deviceId: req.deviceId, payload: data, options: req.options }));
                 }
             } catch (e) {
-                log.error('WS handler error', e);
+                log.error('[WS] Socket handler error', e);
             }
         });
 
         ws.on('close', () => {
-            log.info('WS Client disconnected');
+            log.info('[WS] Client disconnected');
         });
     });
 };

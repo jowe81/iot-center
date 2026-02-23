@@ -10,9 +10,9 @@ const connectDB = async () => {
   try {
     const client = await MongoClient.connect(url);
     _db = client.db(dbName);
-    log.info("Connected to MongoDB Native Driver");
+    log.info("[DB] Connected to MongoDB Native Driver");
   } catch (err) {
-    log.error("Failed to connect to MongoDB", err);
+    log.error("[DB] Failed to connect to MongoDB", err);
     process.exit(1);
   }
 };

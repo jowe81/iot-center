@@ -29,12 +29,12 @@ export const initMqttService = () => {
         }
     }
     
-    log.info(`Initializing MQTT Service, connecting to ${brokerUrl}`);
+    log.info(`[MQTT] Initializing, connecting to ${brokerUrl}`);
     
     client = mqtt.connect(brokerUrl, options);
 
     client.on('connect', () => {
-        log.info('MQTT Connected');
+        log.info('[MQTT] Connected to broker');
         subscribeToDevices(client);
     });
 
@@ -47,7 +47,7 @@ export const initMqttService = () => {
             if (result.statusCode === 201 && result.commands && Object.keys(result.commands).length > 0) {
                 const deviceId = result.deviceId;
                 const commandTopic = `device/${deviceId}/command`;
-                log.info(`Publishing commands to ${commandTopic}`);
+                log.info(`[MQTT] Publishing commands to ${commandTopic}`);
                 client.publish(commandTopic, JSON.stringify(result.commands));
             }
 
@@ -70,7 +70,7 @@ export const sendMqttCommand = (deviceId, command, commandId = null) => {
         if (commandId) {
             payload._ack = commandId.toString();
         }
-        log.info(`Publishing immediate command to ${commandTopic}`);
+        log.info(`[MQTT] Publishing immediate command to ${commandTopic}`);
         client.publish(commandTopic, JSON.stringify(payload));
         return true;
     }
@@ -90,7 +90,7 @@ const subscribeToDevices = (client) => {
             if (protocols.includes('mqtt')) {
                 // Assuming topic convention: device/{deviceId}/data
                 const topic = `device/${deviceId}/data`;
-                log.info(`Subscribing to MQTT topic: ${topic}`);
+                log.info(`[MQTT] Subscribing to topic: ${topic}`);
                 client.subscribe(topic);
             }
         }
