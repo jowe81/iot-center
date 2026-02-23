@@ -106,7 +106,10 @@
                     "tempCOffset": true,
                     "woodstoveState": {
                         "plugin": "woodstoveState",
-                        "inputKeys": ["Sensor.DS18B20.woodstove.tempC"]
+                        "inputKeys": ["Sensor.DS18B20.woodstove.tempC"],
+                        "options": {
+                            "log": true
+                        }
                     }
                 },
                 "Sensor.SHT31": {

@@ -3,19 +3,30 @@
  * Analyzes amperemeter data to determine net charge or discharge of the battery.
  */
 import { getValue } from '../utils/dataUtils.js';
+import log from '../utils/logger.js';
 
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
+    const doLog = options.log === true;
+    if (doLog) log.debug(`batteryCharge plugin running for ${deviceId}`);
+
     // inputs contains values for keys defined in config, e.g. { "Sensor.INA219.chargeMeter.power_mW": 1234 }
     const inputKeys = Object.keys(inputs);
-    if (inputKeys.length === 0) return 0;
+    if (inputKeys.length === 0) {
+        if (doLog) log.debug('batteryCharge: No input keys, returning 0');
+        return 0;
+    }
     
     // Assume the first input key is the power reading in mW
     const powerKey = inputKeys[0];
     const currentPower_mW = inputs[powerKey];
 
-    if (typeof currentPower_mW !== 'number') return 0;
+    if (typeof currentPower_mW !== 'number') {
+        if (doLog) log.debug(`batteryCharge: currentPower_mW is not a number (${currentPower_mW}), returning 0`);
+        return 0;
+    }
 
     if (!lastRecord) {
+        if (doLog) log.debug('batteryCharge: No lastRecord, initializing at 0');
         return 0; // Initialize at 0 if no history
     }
 
@@ -31,5 +42,14 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const avgPower_mW = (previousPower_mW + currentPower_mW) / 2;
     const energyDelta_mWh = avgPower_mW * timeDiffHours;
 
-    return previousNetCharge + energyDelta_mWh;
+    const result = previousNetCharge + energyDelta_mWh;
+
+    if (doLog) {
+        log.debug(`batteryCharge: currentPower_mW=${currentPower_mW}, previousPower_mW=${previousPower_mW}`);
+        log.debug(`batteryCharge: timeDiffHours=${timeDiffHours.toFixed(4)}, avgPower_mW=${avgPower_mW}`);
+        log.debug(`batteryCharge: energyDelta_mWh=${energyDelta_mWh.toFixed(4)}`);
+        log.debug(`batteryCharge: previousNetCharge=${previousNetCharge.toFixed(4)}, newNetCharge=${result.toFixed(4)}`);
+    }
+
+    return result;
 };
