@@ -54,13 +54,14 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
         },
         {
             sort: { receivedAt: 1 },
-            projection: { receivedAt: 1, [`data.${tempKey}`]: 1 }
+            projection: { receivedAt: 1, [`data.${tempKey}`]: 1, [`data.${outputKey}`]: 1 }
         }
     ).toArray();
 
     const points = historyDocs.map(doc => ({
         time: doc.receivedAt.getTime(),
-        val: getValue(doc, `data.${tempKey}`)
+        val: getValue(doc, `data.${tempKey}`),
+        state: getValue(doc, `data.${outputKey}`)
     })).filter(p => typeof p.val === 'number');
 
     // Add current point
@@ -120,7 +121,27 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             }
             break;
         case 'refuel':
-            if (slope > RISE_THRESHOLD) {
+            let minTempSinceRefuel = currentTemp;
+            // Iterate backwards to find the lowest temperature in the current refuel phase
+            for (let i = points.length - 2; i >= 0; i--) {
+                const p = points[i];
+                const pState = p.state ? String(p.state).toLowerCase() : '';
+                if (pState && pState !== 'refuel') {
+                    break;
+                }
+                if (p.val < minTempSinceRefuel) {
+                    if (doLog) log.debug(`${LOG_TAG} Found lower temp in refuel history: ${p.val} (was ${minTempSinceRefuel})`);
+                    minTempSinceRefuel = p.val;
+                }
+            }
+
+            if (doLog) {
+                log.debug(`${LOG_TAG} Refuel check: currentTemp=${currentTemp}, minTempSinceRefuel=${minTempSinceRefuel}, threshold=${minTempSinceRefuel + 1.5}`);
+            }
+
+            if (currentTemp > minTempSinceRefuel + 1.5) {
+                newState = 'running';
+            } else if (slope > RISE_THRESHOLD) {
                 newState = 'running';
             } else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN)) {
                 newState = 'cooldown';
