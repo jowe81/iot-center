@@ -4,8 +4,7 @@ body {
 }
 
 #deviceStats,
-#latestDataSection,
-#managerActions {
+#latestDataSection, {
     margin-top: 20px;
 }
 

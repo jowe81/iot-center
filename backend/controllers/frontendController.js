@@ -84,39 +84,6 @@ export const getDeviceStats = async (req, res) => {
     }
 };
 
-export const getControllableDevices = async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        const db = getDb();
-        const collection = db.collection(`device_${deviceId}`);
-        
-        // Get the most recent document to find available sub-devices
-        const doc = await collection.findOne({}, { sort: { receivedAt: -1 } });
-        
-        if (!doc || !doc.data) {
-            return res.json([]);
-        }
-
-        const controllable = [];
-        const supportedTypes = Object.keys(iotConfig.deviceTypes || {});
-
-        for (const [type, subDevices] of Object.entries(doc.data)) {
-            if (supportedTypes.includes(type)) {
-                for (const subDeviceName of Object.keys(subDevices)) {
-                    controllable.push({
-                        name: subDeviceName,
-                        type: type
-                    });
-                }
-            }
-        }
-
-        res.json(controllable);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
 export const getCommandDefinitions = async (req, res) => {
     res.json(iotConfig.deviceTypes || {});
 };

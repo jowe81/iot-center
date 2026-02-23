@@ -1,7 +1,4 @@
 const deviceSelect = document.getElementById('deviceSelect');
-const managerActions = document.getElementById('managerActions');
-const monitorLink = document.getElementById('monitorLink');
-const controlLink = document.getElementById('controlLink');
 const deviceStats = document.getElementById('deviceStats');
 
 let lastStats = null;
@@ -160,14 +157,9 @@ deviceSelect.addEventListener('change', async () => {
     window.history.replaceState({}, '', newUrl);
 
     if (deviceId) {
-        monitorLink.href = `graph.html?deviceId=${deviceId}`;
-        controlLink.href = `control.html?deviceId=${deviceId}`;
-        managerActions.style.display = 'block';
-
         requestStats(deviceId);
         loadSchedules(deviceId);
     } else {
-        managerActions.style.display = 'none';
         deviceStats.style.display = 'none';
         const schedulesDiv = document.getElementById('deviceSchedules');
         if (schedulesDiv) schedulesDiv.style.display = 'none';
