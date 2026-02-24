@@ -8,13 +8,16 @@ import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtil
 import { saveRawData } from '../utils/rawDataStore.js';
 import * as woodstoveState from '../plugins/woodstoveState.js';
 import * as batteryCharge from '../plugins/batteryCharge.js';
+import * as seaLevelPressure from '../plugins/seaLevelPressure.js';
+
 
 const require = createRequire(import.meta.url);
 const iotConfig = require("../config/iotConfig.json");
 
 const availablePlugins = {
     woodstoveState,
-    batteryCharge
+    batteryCharge,
+    seaLevelPressure,
 };
 
 // --- Helper Functions ---

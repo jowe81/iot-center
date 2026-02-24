@@ -17,6 +17,31 @@
             "password": null
         }
     },
+    "dashboards": [
+        {
+            "id": "dash_1771887905770",
+            "name": "Favourites",
+            "metrics": [
+                "recroom_01.Sensor.DS18B20.woodstove.woodstoveState",
+                "recroom_01.Sensor.DS18B20.woodstove.tempC",
+                "woodshed_01.DeviceControl.RGB.rgbStrip.isOn",
+                "woodshed_01.System.BatteryMonitor.batteryMonitor.netCharge_Wh",
+                "woodshed_01.Sensor.BME280.controlBox.pressure",
+                "woodshed_01.Sensor.BME280.controlBox.humidity",
+                "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
+                "woodshed_01.System.BatteryMonitor.batteryMonitor.voltageRaw"
+            ]
+        },
+        {
+            "id": "dash_1771888734383",
+            "name": "Humidity",
+            "metrics": [
+                "livingroom_01.Sensor.SHT31.shtSensor.humidity",
+                "recroom_01.Sensor.SHT31.shtSensor.humidity",
+                "woodshed_01.Sensor.BME280.controlBox.humidity"
+            ]
+        }
+    ],
     "schedules": [
         {
             "name": "Ambient Glow After Sunset",
@@ -109,9 +134,10 @@
                     "adjustment": true,
                     "netCharge_Wh": {
                         "plugin": "batteryCharge",
-                        "inputKeys": ["Sensor.INA219.chargeMeter.power_mW"],
-                        "options": {
-                        },
+                        "inputKeys": [
+                            "Sensor.INA219.chargeMeter.power_mW"
+                        ],
+                        "options": {},
                         "outputScale": 0.001
                     }
                 },
@@ -154,11 +180,22 @@
                     "readingsCount": true,
                     "interval": true,
                     "bufferSize": true,
-                    "averagingSamples" : true,
-                    "calibrationMode" : true
+                    "averagingSamples": true,
+                    "calibrationMode": true
                 },
                 "Sensor.BME280": {
                     "pressure": true,
+                    "pressureSeaLevel": {
+                        "plugin": "seaLevelPressure",
+                        "inputKeys": [
+                            "Sensor.BME280.controlBox.temperature",
+                            "Sensor.BME280.controlBox.pressure"
+                        ],
+                        "options": {
+                            "altitude": 700,
+                            "log": true
+                        }
+                    },
                     "humidity": true,
                     "temperature": true,
                     "pressOffset": true,
@@ -184,9 +221,12 @@
                     "tempCOffset": true,
                     "woodstoveState": {
                         "plugin": "woodstoveState",
-                        "inputKeys": ["Sensor.DS18B20.woodstove.tempC"],
+                        "inputKeys": [
+                            "Sensor.DS18B20.woodstove.tempC",
+                            "Sensor.SHT31.shtSensor.tempC"
+                        ],
                         "options": {
-                            "log": false
+                            "log": true
                         }
                     }
                 },
@@ -283,9 +323,7 @@
                 "setAutoOffTimer": "integer",
                 "setFadeDuration": "integer"
             },
-            "keysToCommandsMap": {
-                
-            }
+            "keysToCommandsMap": {}
         },
         "DeviceControl.RGB": {
             "supportedCommands": {

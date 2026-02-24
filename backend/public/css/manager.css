@@ -1,8 +1,4 @@
 /* Styles for manager.js controlled elements */
-body {
-    font-size: 0.9em;
-}
-
 #deviceStats,
 #latestDataSection, {
     margin-top: 20px;
@@ -17,9 +13,4 @@ body {
 
 .latest-data-header h3 {
     margin: 0;
-}
-
-#latestDataSection table {
-    width: 100%;
-    border-collapse: collapse;
 }

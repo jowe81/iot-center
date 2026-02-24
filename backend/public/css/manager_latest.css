@@ -85,18 +85,6 @@
     font-size: 18px;
 }
 
-.status-indicator {
-    font-size: 1.2em;
-}
-
-.status-on {
-    color: #28a745; /* green */
-}
-
-.status-off {
-    color: #dc3545; /* red */
-}
-
 .toggleable {
     cursor: pointer;
 }

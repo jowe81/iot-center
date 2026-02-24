@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (key === 'isOn' && typeof value === 'boolean') {
             const span = document.createElement('span');
             span.classList.add('status-indicator', value ? 'status-on' : 'status-off');
-            span.textContent = '●';
+            span.textContent = '';
 
             let uniqueKey = null;
             if (context) {

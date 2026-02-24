@@ -34,7 +34,16 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
     const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 15;
-    const AMBIENT_TEMP = options.ambientTemp || 25;
+    
+    let AMBIENT_TEMP = options.ambientTemp || 25;
+    if (inputKeys.length > 1) {
+        const ambientKey = inputKeys[1];
+        const liveAmbient = inputs[ambientKey];
+        if (typeof liveAmbient === 'number') {
+            AMBIENT_TEMP = liveAmbient;
+            if (doLog) log.debug(`${LOG_TAG} Using live ambient temp: ${AMBIENT_TEMP}`);
+        }
+    }
     
     // Thresholds (Slope in deg/min, Drops in %)
     const RISE_THRESHOLD = options.riseThreshold || 0.5; 
@@ -94,7 +103,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Calculate Max Temp in the history window (local peak)
     const maxTemp = Math.max(...points.map(p => p.val));
-    if (doLog) log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}`);
+    const minTemp = Math.min(...points.map(p => p.val));
+    if (doLog) log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}, minTemp=${minTemp.toFixed(2)}`);
 
     let newState = previousState;
 
@@ -104,6 +114,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'warmup';
             } else if (currentTemp > AMBIENT_TEMP + 10) {
                 newState = 'running';
+            } else if (currentTemp > minTemp + 4) {
+                newState = 'warmup';
             }
             break;
         case 'warmup':
@@ -139,11 +151,13 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 log.debug(`${LOG_TAG} Refuel check: currentTemp=${currentTemp}, minTempSinceRefuel=${minTempSinceRefuel}, threshold=${minTempSinceRefuel + 1.5}`);
             }
 
-            if (currentTemp > minTempSinceRefuel + 1.5) {
+            if (currentTemp > minTempSinceRefuel + 1) {
                 newState = 'running';
             } else if (slope > RISE_THRESHOLD) {
                 newState = 'running';
             } else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN)) {
+                newState = 'cooldown';
+            } else if (currentTemp < AMBIENT_TEMP + 10) {
                 newState = 'cooldown';
             }
             break;

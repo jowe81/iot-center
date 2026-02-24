@@ -12,5 +12,9 @@ router.get('/commands/definitions', frontendController.getCommandDefinitions);
 router.post('/commands/queue', frontendController.queueCommand);
 router.get('/device/:deviceId/config', frontendController.getDeviceConfig);
 router.get('/schedules', frontendController.getSchedules);
+router.get('/dashboards', frontendController.getDashboards);
+router.post('/dashboards', frontendController.saveDashboard);
+router.delete('/dashboards/:id', frontendController.deleteDashboard);
+router.get('/dashboards/:id/values', frontendController.getDashboardValues);
 
 export default router;

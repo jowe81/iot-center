@@ -1,8 +1,11 @@
 import { createRequire } from 'module';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getDb } from '../config/db.js';
 import { sendMqttCommand } from './mqttService.js';
 import { addCommand, markCommandAsSent } from './commandService.js';
-import { detectPlateauAtTime } from '../utils/dataUtils.js';
+import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
 import { getRawData } from '../utils/rawDataStore.js';
 
 const require = createRequire(import.meta.url);
@@ -23,6 +26,89 @@ export const getDevices = async (req, res) => {
             });
         
         res.json(devices);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const saveConfig = async () => {
+    try {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const configPath = path.join(__dirname, '../config/iotConfig.json');
+        await fs.writeFile(configPath, JSON.stringify(iotConfig, null, 4));
+    } catch (error) {
+        console.error('Failed to save config:', error);
+    }
+};
+
+export const getDashboards = async (req, res) => {
+    res.json(iotConfig.dashboards || []);
+};
+
+export const saveDashboard = async (req, res) => {
+    try {
+        const dashboard = req.body;
+        if (!dashboard.id) {
+            dashboard.id = 'dash_' + Date.now();
+        }
+        
+        if (!iotConfig.dashboards) iotConfig.dashboards = [];
+        
+        const idx = iotConfig.dashboards.findIndex(d => d.id === dashboard.id);
+        if (idx >= 0) {
+            iotConfig.dashboards[idx] = dashboard;
+        } else {
+            iotConfig.dashboards.push(dashboard);
+        }
+        
+        await saveConfig();
+        res.json(dashboard);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const deleteDashboard = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (iotConfig.dashboards) {
+            iotConfig.dashboards = iotConfig.dashboards.filter(d => d.id !== id);
+            await saveConfig();
+        }
+        res.json({ status: 'deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getDashboardValues = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const dashboard = (iotConfig.dashboards || []).find(d => d.id === id);
+        if (!dashboard) return res.status(404).json({ error: 'Dashboard not found' });
+
+        const results = {};
+        // Group metrics by device to minimize DB calls
+        const deviceMetrics = {};
+        dashboard.metrics.forEach(metric => {
+            const parts = metric.split('.');
+            const deviceId = parts[0];
+            const key = parts.slice(1).join('.');
+            if (!deviceMetrics[deviceId]) deviceMetrics[deviceId] = [];
+            deviceMetrics[deviceId].push({ fullMetric: metric, key });
+        });
+
+        for (const deviceId in deviceMetrics) {
+            const latest = await fetchLatestData(deviceId);
+            if (latest) {
+                deviceMetrics[deviceId].forEach(m => {
+                    const val = getValue(latest, 'data.' + m.key);
+                    results[m.fullMetric] = { value: val, timestamp: latest.receivedAt };
+                });
+            }
+        }
+        res.json(results);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
