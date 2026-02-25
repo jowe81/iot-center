@@ -2,8 +2,8 @@
  * Woodstove State Plugin
  * Analyzes temperature data to determine woodstove running mode.
  */
-import { getValue } from '../utils/dataUtils.js';
-import log from '../utils/logger.js';
+import { getValue } from '../../utils/dataUtils.js';
+import log from '../../utils/logger.js';
 
 const LOG_TAG = '[Plugin: WoodstoveState]';
 

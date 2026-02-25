@@ -2,7 +2,7 @@
  * Sea Level Pressure Plugin
  * Calculates the standard sea level barometric pressure based on local pressure, temperature, and altitude.
  */
-import log from "../utils/logger.js";
+import log from "../../utils/logger.js";
 
 const LOG_TAG = "[Plugin: SeaLevelPressure]";
 

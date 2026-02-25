@@ -17,6 +17,28 @@
             "password": null
         }
     },
+    "actions": [
+        {
+            "name": "Woodstove Status LED",
+            "enabled": true,
+            "plugin": "woodstoveStateLed",
+            "interval": 5000,
+            "options": {
+                "log": true,
+                "sourceDevice": "recroom_01",
+                "sourceKey": "data.Sensor.DS18B20.woodstove.woodstoveState",
+                "targetDevice": "recroom_01",
+                "targetSubDevice": "woodstoveStatusLed",
+                "stateToCommandMap": {
+                    "off": { "setR": 0, "setG": 0, "setB": 0, "setState": false, "setPercentage": 0 },
+                    "cooldown": { "setR": 0, "setG": 0, "setB": 255, "setState": true, "setPercentage": 1 },
+                    "warumup": { "setR": 100, "setG": 0, "setB": 0, "setState": true, "setPercentage": 1 },
+                    "running": { "setR": 0, "setG": 255, "setB": 0, "setState": true, "setPercentage": 2 },
+                    "refuel": { "setR": 255, "setG": 0, "setB": 0, "setState": true, "setPercentage": 20 }
+                }
+            }
+        }
+    ],
     "dashboards": [
         {
             "id": "dash_1771887905770",

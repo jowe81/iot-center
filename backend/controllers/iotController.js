@@ -6,9 +6,9 @@ import { broadcast } from './websocketService.js';
 import { fetchDeviceStats } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
-import * as woodstoveState from '../plugins/woodstoveState.js';
-import * as batteryCharge from '../plugins/batteryCharge.js';
-import * as seaLevelPressure from '../plugins/seaLevelPressure.js';
+import * as woodstoveState from '../plugins/data/woodstoveState.js';
+import * as batteryCharge from '../plugins/data/batteryCharge.js';
+import * as seaLevelPressure from '../plugins/data/seaLevelPressure.js';
 
 
 const require = createRequire(import.meta.url);

@@ -2,8 +2,8 @@
  * Battery Charge Plugin
  * Analyzes amperemeter data to determine net charge or discharge of the battery.
  */
-import { getValue } from '../utils/dataUtils.js';
-import log from '../utils/logger.js';
+import { getValue } from '../../utils/dataUtils.js';
+import log from '../../utils/logger.js';
 
 const LOG_TAG = '[Plugin: BatteryCharge]';
 

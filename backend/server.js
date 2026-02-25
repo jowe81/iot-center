@@ -10,6 +10,7 @@ import log from './utils/logger.js';
 import { initMqttService } from './controllers/mqttService.js';
 import { initWebSocket } from './controllers/websocketService.js';
 import { initSchedulerService } from './controllers/schedulerService.js';
+import { initActionService } from './controllers/actionService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,7 @@ log.info(`[System] Backend starting up...`)
 connectDB().then(() => {
   initMqttService();
   initSchedulerService();
+  initActionService();
 });
 
 app.use(express.json());
