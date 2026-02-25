@@ -13,23 +13,16 @@
         <nav class="top-nav">
             <ul>
                 <li><a href="/">Dashboards</a></li>
-                <li><a href="status.html">Status</a></li>
-                <li><a href="manager.html" class="active">Manager</a></li>
-                <li><a href="graph.html">Graph</a></li>
+                <li><a href="status.html">Device Status</a></li>
+                <li><a href="manager.html" class="active">Device Manager</a></li>
+                <li><a href="graph.html">Data Graph</a></li>
             </ul>
         </nav>
         <header>
             <h1>Device Manager</h1>
         </header>
 
-        <div class="controls">
-            <div class="control-group">
-                <label for="deviceSelect">Select Device:</label>
-                <select id="deviceSelect">
-                    <option value="">Select a device...</option>
-                </select>
-            </div>
-        </div>
+        <div id="deviceList" class="device-nav"></div>
 
         <div id="deviceStats" class="stats-container hidden">
             <div class="stats-grid">

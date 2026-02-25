@@ -90,41 +90,68 @@ document.getElementById('deviceSelect').addEventListener('change', async (e) => 
 });
 
 function renderList() {
-    const ul = document.getElementById('dashboardList');
-    ul.innerHTML = '';
+    const nav = document.getElementById('dashboardNav');
+    nav.innerHTML = '';
+    
     dashboards.forEach(d => {
-        const item = document.createElement('li');
-        item.className = 'dashboard-item';
-        
-        const header = document.createElement('div');
-        header.className = 'dashboard-header';
-        header.innerHTML = `
-            <div><strong>${d.name}</strong> <span style="color:#888; font-size:0.9em; margin-left:10px;">${d.metrics.length} metrics</span></div>
-        `;
-        header.onclick = () => toggleDashboard(d.id);
+        const badge = document.createElement('div');
+        badge.className = 'dashboard-badge';
+        if (expandedDashboards.has(d.id)) badge.classList.add('active');
+        badge.onclick = () => toggleDashboard(d.id);
+
+        const title = document.createElement('span');
+        title.textContent = d.name;
+        title.style.fontWeight = '500';
+        badge.appendChild(title);
+
+        const count = document.createElement('span');
+        count.textContent = `(${d.metrics.length})`;
+        count.style.fontSize = '0.85em';
+        count.style.marginLeft = '6px';
+        count.style.opacity = '0.8';
+        badge.appendChild(count);
 
         const editBtn = document.createElement('button');
         editBtn.className = 'btn btn-secondary';
         editBtn.textContent = 'Edit';
-        editBtn.style.fontSize = '0.8em';
-        editBtn.style.padding = '4px 10px';
+        editBtn.style.fontSize = '0.7em';
+        editBtn.style.padding = '2px 6px';
+        editBtn.style.marginLeft = '10px';
         editBtn.onclick = (e) => {
             e.stopPropagation();
             editDashboard(d.id);
         };
-        header.appendChild(editBtn);
+        badge.appendChild(editBtn);
 
-        const content = document.createElement('div');
-        content.id = `dashboard-content-${d.id}`;
-        content.className = 'dashboard-content';
-        
-        item.appendChild(header);
-        item.appendChild(content);
-        ul.appendChild(item);
+        nav.appendChild(badge);
+    });
 
+    renderActiveDashboards();
+}
+
+function renderActiveDashboards() {
+    const container = document.getElementById('activeDashboards');
+    
+    // Remove dashboards that are no longer expanded
+    Array.from(container.children).forEach(child => {
+        const id = child.id.replace('dashboard-content-', '');
+        if (!expandedDashboards.has(id)) {
+            container.removeChild(child);
+        }
+    });
+
+    // Add or re-order expanded dashboards
+    dashboards.forEach(d => {
         if (expandedDashboards.has(d.id)) {
-            content.style.display = 'block';
-            renderDashboardTable(d.id);
+            let content = document.getElementById(`dashboard-content-${d.id}`);
+            if (!content) {
+                content = document.createElement('div');
+                content.id = `dashboard-content-${d.id}`;
+                content.className = 'dashboard-content';
+                container.appendChild(content);
+                renderDashboardTable(d.id);
+            }
+            container.appendChild(content); // Ensure order matches dashboards array
         }
     });
 }
@@ -136,16 +163,13 @@ function showList() {
 }
 
 async function toggleDashboard(id) {
-    const content = document.getElementById(`dashboard-content-${id}`);
     if (expandedDashboards.has(id)) {
         expandedDashboards.delete(id);
-        content.style.display = 'none';
     } else {
         expandedDashboards.add(id);
-        content.style.display = 'block';
-        await renderDashboardTable(id);
     }
     updateUrlState();
+    renderList();
 }
 
 function updateUrlState() {
@@ -166,6 +190,7 @@ async function renderDashboardTable(id) {
 
     const container = document.getElementById(`dashboard-content-${id}`);
     container.innerHTML = `
+        <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">${dashboard.name}</h3>
         <table>
             <thead>
                 <tr>

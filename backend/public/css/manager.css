@@ -14,3 +14,35 @@
 .latest-data-header h3 {
     margin: 0;
 }
+
+.device-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.device-badge {
+    text-decoration: none;
+    color: #2164ac;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.device-badge:hover {
+    background-color: #e9f0f7;
+    color: #1a4f8a;
+}
+
+.device-badge.active {
+    background-color: #2164ac;
+    color: white;
+    border-color: #2164ac;
+}

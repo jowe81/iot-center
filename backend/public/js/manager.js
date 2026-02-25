@@ -1,18 +1,21 @@
-const deviceSelect = document.getElementById('deviceSelect');
+const deviceList = document.getElementById('deviceList');
 const deviceStats = document.getElementById('deviceStats');
 
 let lastStats = null;
 const ws = new WebSocket(`ws://${window.location.host}`);
 
 ws.onopen = () => {
-    if (deviceSelect.value) {
-        requestStats(deviceSelect.value);
+    const params = new URLSearchParams(window.location.search);
+    const deviceId = params.get('deviceId');
+    if (deviceId) {
+        requestStats(deviceId);
     }
 };
 
 ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    if (msg.type === 'STATS' && msg.deviceId === deviceSelect.value) {
+    const params = new URLSearchParams(window.location.search);
+    if (msg.type === 'STATS' && msg.deviceId === params.get('deviceId')) {
         renderStats(msg.payload);
     }
 };
@@ -22,18 +25,24 @@ async function loadDevices() {
         const res = await fetch('/api/devices');
         const devices = await res.json();
         
+        deviceList.innerHTML = '';
         devices.forEach(device => {
-            const option = document.createElement('option');
-            option.value = device.id;
-            option.textContent = device.name;
-            deviceSelect.appendChild(option);
+            const badge = document.createElement('a');
+            badge.href = '#';
+            badge.className = 'device-badge';
+            badge.textContent = device.name;
+            badge.dataset.id = device.id;
+            badge.onclick = (e) => {
+                e.preventDefault();
+                selectDevice(device.id);
+            };
+            deviceList.appendChild(badge);
         });
 
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('deviceId');
         if (deviceId && devices.some(d => d.id === deviceId)) {
-            deviceSelect.value = deviceId;
-            deviceSelect.dispatchEvent(new Event('change'));
+            selectDevice(deviceId);
         }
     } catch (err) {
         console.error('Failed to load devices', err);
@@ -133,7 +142,7 @@ function renderSchedules(schedules) {
         
         const status = schedule.enabled ? '<span style="color:green">●</span>' : '<span style="color:red">○</span>';
         
-        const deviceTargets = schedule.targets.filter(t => t.deviceId === deviceSelect.value);
+        const deviceTargets = schedule.targets.filter(t => t.deviceId === new URLSearchParams(window.location.search).get('deviceId'));
         const actions = deviceTargets.map(t => {
              if (t.command && typeof t.command === 'object') return JSON.stringify(t.command);
              return `${t.subDevice} -> ${t.command}(${t.argument})`;
@@ -146,8 +155,12 @@ function renderSchedules(schedules) {
     schedulesDiv.style.display = 'block';
 }
 
-deviceSelect.addEventListener('change', async () => {
-    const deviceId = deviceSelect.value;
+function selectDevice(deviceId) {
+    const badges = deviceList.querySelectorAll('.device-badge');
+    badges.forEach(b => {
+        if (b.dataset.id === deviceId) b.classList.add('active');
+        else b.classList.remove('active');
+    });
     
     // Update URL
     const params = new URLSearchParams(window.location.search);
@@ -155,6 +168,9 @@ deviceSelect.addEventListener('change', async () => {
     else params.delete('deviceId');
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', newUrl);
+
+    // Notify other scripts
+    document.dispatchEvent(new CustomEvent('device-selected', { detail: { deviceId } }));
 
     if (deviceId) {
         requestStats(deviceId);
@@ -164,7 +180,7 @@ deviceSelect.addEventListener('change', async () => {
         const schedulesDiv = document.getElementById('deviceSchedules');
         if (schedulesDiv) schedulesDiv.style.display = 'none';
     }
-});
+}
 
 loadDevices();
 setInterval(updateLastSeen, 1000);

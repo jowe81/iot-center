@@ -116,6 +116,17 @@ th, td {
     border-bottom: 1px solid #eee;
 }
 
+td a {
+    text-decoration: none;
+    color: #2164ac;
+    font-weight: 500;
+}
+
+td a:hover {
+    text-decoration: underline;
+    color: #2164ac;
+}
+
 tr:last-child td { border-bottom: none; }
 tr:hover { background-color: #f9f9f9; }
 

@@ -20,21 +20,19 @@
         <nav class="top-nav">
             <ul>
                 <li><a href="/" class="active">Dashboards</a></li>
-                <li><a href="status.html">Status</a></li>
-                <li><a href="manager.html">Manager</a></li>
-                <li><a href="graph.html">Graph</a></li>
+                <li><a href="status.html">Device Status</a></li>
+                <li><a href="manager.html">Device Manager</a></li>
+                <li><a href="graph.html">Data Graph</a></li>
             </ul>
         </nav>
-        <header>
-            <h1>Dashboards</h1>
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0;">Dashboards</h1>
+            <a href="#" onclick="showCreate(); return false;" style="color: #666; text-decoration: none; font-size: 0.9em;">+ New Dashboard</a>
         </header>
-        
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <button class="btn btn-success" onclick="showCreate()">+ New Dashboard</button>
-        </div>
 
         <div id="listSection">
-            <ul id="dashboardList" class="dashboard-list"></ul>
+            <div id="dashboardNav" class="dashboard-nav"></div>
+            <div id="activeDashboards"></div>
         </div>
 
         <div id="editSection">

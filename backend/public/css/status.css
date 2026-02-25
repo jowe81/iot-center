@@ -1,2 +1,34 @@
-/* Styles for status page */
-/* Currently uses shared styles from style.css */
+.status-ok { background-color: #28a745; }   /* Green */
+.status-warn { background-color: #ffc107; } /* Yellow */
+.status-crit { background-color: #dc3545; } /* Red */
+.status-unknown { background-color: #6c757d; } /* Grey */
+
+#statusTable a {
+    text-decoration: none;
+    color: #007bff;
+    font-weight: 500;
+}
+
+#statusTable a:hover {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+.device-badge {
+    text-decoration: none !important;
+    color: #2164ac !important;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    display: inline-block;
+    transition: all 0.2s;
+    min-width: 120px;
+    text-align: center;
+}
+
+.device-badge:hover {
+    background-color: #e9f0f7;
+    color: #1a4f8a !important;
+}

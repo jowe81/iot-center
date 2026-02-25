@@ -230,6 +230,14 @@
                 ]
             },
             "data": {
+                "DeviceControl.RGB": {
+                    "isOn": true,
+                    "percentage": true,
+                    "r": true,
+                    "g": true,
+                    "b": true,
+                    "frequency": true
+                },
                 "Sensor.DS18B20.*": {
                     "tempC": true,
                     "tempCOffset": true,

@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const sendIcon = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
 
-    const deviceSelect = document.getElementById('deviceSelect');
     const latestDataSection = document.getElementById('latestDataSection');
     const latestDataBody = document.getElementById('latestDataBody');
+    let currentDeviceId = null;
 
-    if (!deviceSelect || !latestDataSection || !latestDataBody) return;
+    if (!latestDataSection || !latestDataBody) return;
 
     // Create Raw Data Section if it doesn't exist
     let latestRawDataSection = document.getElementById('latestRawDataSection');
@@ -50,19 +50,19 @@ document.addEventListener('DOMContentLoaded', () => {
         ws = new WebSocket(`ws://${window.location.host}`);
 
         ws.onopen = () => {
-            if (deviceSelect.value) {
-                fetchDeviceConfig(deviceSelect.value);
-                updateLatestData(deviceSelect.value);
+            if (currentDeviceId) {
+                fetchDeviceConfig(currentDeviceId);
+                updateLatestData(currentDeviceId);
             }
         };
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            if (msg.type === 'LATEST' && msg.deviceId === deviceSelect.value) {
+            if (msg.type === 'LATEST' && msg.deviceId === currentDeviceId) {
                 renderData(msg.payload, msg.deviceId);
                 latestDataSection.style.display = 'block';
             }
-            if (msg.type === 'LATEST_RAW' && msg.deviceId === deviceSelect.value) {
+            if (msg.type === 'LATEST_RAW' && msg.deviceId === currentDeviceId) {
                 if (msg.payload && latestRawDataSection && latestRawDataBody) {
                     latestRawDataBody.textContent = JSON.stringify(msg.payload, null, 2);
                     latestRawDataSection.style.display = 'block';
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     latestRawDataSection.style.display = 'none';
                 }
             }
-            if (msg.type === 'DEVICE_CONFIG' && msg.deviceId === deviceSelect.value) {
+            if (msg.type === 'DEVICE_CONFIG' && msg.deviceId === currentDeviceId) {
                 if (deviceConfigResolve) deviceConfigResolve(msg.payload);
             }
         };
@@ -89,8 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(d => { commandDefinitions = d; })
         .catch(console.error);
 
-    deviceSelect.addEventListener('change', async (e) => {
-        const deviceId = e.target.value;
+    document.addEventListener('device-selected', async (e) => {
+        const deviceId = e.detail.deviceId;
+        currentDeviceId = deviceId;
         if (!deviceId) {
             latestDataSection.style.display = 'none';
             if (latestRawDataSection) latestRawDataSection.style.display = 'none';

@@ -26,11 +26,35 @@ async function loadStatus() {
         statuses.forEach(status => {
             const row = document.createElement('tr');
             
+            const nameCell = document.createElement('td');
             const idCell = document.createElement('td');
-            const link = document.createElement('a');
-            link.href = `manager.html?deviceId=${status.deviceId}`;
-            link.textContent = status.name && status.name !== status.deviceId ? `${status.name} (${status.deviceId})` : status.deviceId;
-            idCell.appendChild(link);
+            const statusCell = document.createElement('td');
+            
+            // Status Indicator
+            const indicator = document.createElement('span');
+            indicator.className = 'status-indicator';
+            
+            if (status.lastSeen && status.interval) {
+                const diff = Date.now() - new Date(status.lastSeen).getTime();
+                if (diff <= status.interval) {
+                    indicator.classList.add('status-ok');
+                } else if (diff <= status.interval * 2) {
+                    indicator.classList.add('status-warn');
+                } else {
+                    indicator.classList.add('status-crit');
+                }
+            } else {
+                indicator.classList.add('status-unknown');
+            }
+            statusCell.appendChild(indicator);
+
+            const nameLink = document.createElement('a');
+            nameLink.href = `manager.html?deviceId=${status.deviceId}`;
+            nameLink.className = 'device-badge';
+            nameLink.textContent = status.name;
+            nameCell.appendChild(nameLink);
+
+            idCell.textContent = status.deviceId;
             
             const timeCell = document.createElement('td');
             const agoCell = document.createElement('td');
@@ -43,9 +67,11 @@ async function loadStatus() {
                 agoCell.textContent = '-';
             }
 
+            row.appendChild(nameCell);
             row.appendChild(idCell);
             row.appendChild(timeCell);
             row.appendChild(agoCell);
+            row.appendChild(statusCell);
             tbody.appendChild(row);
         });
     } catch (err) {
