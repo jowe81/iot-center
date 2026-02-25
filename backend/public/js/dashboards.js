@@ -280,7 +280,7 @@ function renderDashboardRows(dashboard) {
 
         const keyCell = document.createElement('td');
         keyCell.className = 'key-cell';
-        keyCell.innerHTML = `<div class="device-name">${deviceName}</div><a href="graph.html?deviceId=${deviceId}&fields=data.${key}">${label}</a>`;
+        keyCell.innerHTML = `<div class="device-name">${deviceName} <span style="color:#888; font-weight:normal;">(${configKey}.${name})</span></div><a href="graph.html?deviceId=${deviceId}&fields=data.${key}">${label}</a>`;
         row.appendChild(keyCell);
 
         const valueCell = document.createElement('td');

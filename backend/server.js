@@ -28,6 +28,11 @@ connectDB().then(() => {
 
 app.use(express.json());
 
+// Serve dashboards.html as home page
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboards.html'));
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 

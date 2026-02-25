@@ -42,7 +42,11 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     
     // Calculate energy change using Trapezoidal rule: (P_prev + P_curr) / 2 * time
     const avgPower_mW = (previousPower_mW + currentPower_mW) / 2;
-    const energyDelta_mWh = avgPower_mW * timeDiffHours;
+    let energyDelta_mWh = avgPower_mW * timeDiffHours;
+
+    if (energyDelta_mWh > 0 && options.efficiencyFactor) {
+        energyDelta_mWh *= options.efficiencyFactor;
+    }
 
     const result = previousNetCharge + energyDelta_mWh;
 

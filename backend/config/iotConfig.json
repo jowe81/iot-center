@@ -26,7 +26,7 @@
                 "recroom_01.Sensor.DS18B20.woodstove.tempC",
                 "woodshed_01.DeviceControl.RGB.rgbStrip.isOn",
                 "woodshed_01.System.BatteryMonitor.batteryMonitor.netCharge_Wh",
-                "woodshed_01.Sensor.BME280.controlBox.pressure",
+                "woodshed_01.Sensor.BME280.controlBox.pressureSeaLevel",
                 "woodshed_01.Sensor.BME280.controlBox.humidity",
                 "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
                 "woodshed_01.System.BatteryMonitor.batteryMonitor.voltageRaw"
@@ -39,6 +39,18 @@
                 "livingroom_01.Sensor.SHT31.shtSensor.humidity",
                 "recroom_01.Sensor.SHT31.shtSensor.humidity",
                 "woodshed_01.Sensor.BME280.controlBox.humidity"
+            ]
+        },
+        {
+            "id": "dash_1771965639691",
+            "name": "Temperatures",
+            "metrics": [
+                "livingroom_01.Sensor.SHT31.shtSensor.tempC",
+                "recroom_01.Sensor.SHT31.shtSensor.tempC",
+                "recroom_01.Sensor.DS18B20.woodstove.tempC",
+                "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
+                "woodshed_01.Sensor.DS18B20.battery.tempC",
+                "woodshed_01.Sensor.BME280.controlBox.temperature"
             ]
         }
     ],
@@ -137,7 +149,9 @@
                         "inputKeys": [
                             "Sensor.INA219.chargeMeter.power_mW"
                         ],
-                        "options": {},
+                        "options": {
+                            "efficiencyFactor": 0.85
+                        },
                         "outputScale": 0.001
                     }
                 },

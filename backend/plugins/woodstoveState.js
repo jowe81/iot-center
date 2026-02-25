@@ -119,7 +119,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             }
             break;
         case 'warmup':
-            if (slope < STABLE_THRESHOLD && currentTemp > AMBIENT_TEMP + 10) {
+            if (currentTemp > AMBIENT_TEMP + 10) {
                 newState = 'running';
             } else if (slope < DROP_THRESHOLD) {
                 newState = 'cooldown';
@@ -165,6 +165,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             if (currentTemp < AMBIENT_TEMP + 2) {
                 newState = 'off';
             } else if (slope > RISE_THRESHOLD) {
+                newState = 'warmup';
+            } else if (slope > 0 && (currentTemp > AMBIENT_TEMP + 10)) {
                 newState = 'warmup';
             }
             break;
