@@ -46,10 +46,10 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     }
     
     // Thresholds (Slope in deg/min, Drops in %)
-    const RISE_THRESHOLD = options.riseThreshold || 0.5; 
+    const RISE_THRESHOLD = options.riseThreshold || 0.03; 
     const STABLE_THRESHOLD = options.stableThreshold || 0.2; 
     const DROP_THRESHOLD = options.dropThreshold || -0.5; 
-    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.15; // 15% drop from peak
+    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.03; // 8% drop from peak
     const RELATIVE_DROP_COOLDOWN = options.relativeDropCooldown || 0.40; // 40% drop from peak
 
     // Fetch History
@@ -118,6 +118,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'warmup';
             }
             break;
+
         case 'warmup':
             if (currentTemp > AMBIENT_TEMP + 10) {
                 newState = 'running';
@@ -125,6 +126,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'cooldown';
             }
             break;
+
         case 'running':
             if (currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL)) {
                 newState = 'refuel';
@@ -132,6 +134,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'cooldown';
             }
             break;
+
         case 'refuel':
             let minTempSinceRefuel = currentTemp;
             // Iterate backwards to find the lowest temperature in the current refuel phase
@@ -161,6 +164,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'cooldown';
             }
             break;
+
         case 'cooldown':
             if (currentTemp < AMBIENT_TEMP + 2) {
                 newState = 'off';
@@ -170,6 +174,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = 'warmup';
             }
             break;
+
         default:
             newState = 'off';
     }

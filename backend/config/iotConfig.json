@@ -22,7 +22,7 @@
             "name": "Woodstove Status LED",
             "enabled": true,
             "plugin": "woodstoveStateLed",
-            "interval": 5000,
+            "interval": 30000,
             "options": {
                 "log": true,
                 "sourceDevice": "recroom_01",
@@ -36,6 +36,21 @@
                     "running": { "setR": 0, "setG": 255, "setB": 0, "setState": true, "setPercentage": 2 },
                     "refuel": { "setR": 255, "setG": 0, "setB": 0, "setState": true, "setPercentage": 20 }
                 }
+            }
+        },
+        {
+            "name": "Humidistat Office Johannes",
+            "enabled": true,
+            "plugin": "humidistat",
+            "interval": 60000,
+            "options": {
+                "log": true,
+                "sourceDevice": "office_johannes_01",
+                "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
+                "targetDevice": "office_johannes_01",
+                "targetSubDevice": "humidifier",
+                "setPoint": 45,
+                "hysteresis": 2
             }
         }
     ],
@@ -142,6 +157,54 @@
                     "argument": false
                 }
             ]
+        },
+        {
+            "name": "Counter Lights Morning",
+            "enabled": true,
+            "trigger": {
+                "type": "daily",
+                "time": "07:00"
+            },
+            "targets": [
+                {
+                    "deviceId": "kitchen_01",
+                    "subDevice": "counterLights",
+                    "command": "setPercentage",
+                    "argument": 50
+                }
+            ]
+        },
+        {
+            "name": "Counter Lights Evening",
+            "enabled": true,
+            "trigger": {
+                "type": "daily",
+                "time": "20:30"
+            },
+            "targets": [
+                {
+                    "deviceId": "kitchen_01",
+                    "subDevice": "counterLights",
+                    "command": "setPercentage",
+                    "argument": 30
+                }
+            ]
+        },
+        {
+            "name": "Counter Lights Night",
+            "enabled": true,
+            "trigger": {
+                "type": "daily",
+                "time": "22:00"
+            },
+            "targets": [
+                {
+                    "deviceId": "kitchen_01",
+                    "subDevice": "counterLights",
+                    "command": "setPercentage",
+                    "argument": 10
+                }
+            ]
         }
     ],
     "devices": {
@@ -229,7 +292,7 @@
                         ],
                         "options": {
                             "altitude": 700,
-                            "log": true
+                            "log": false
                         }
                     },
                     "humidity": true,
@@ -333,6 +396,67 @@
                     "interval": true,
                     "tempCOffset": true,
                     "humOffset": true
+                }
+            }
+        },
+        "office_johannes_01": {
+            "meta": {
+                "name": "Office Johannes"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
+            "data": {
+                "System.SystemMonitor": {
+                    "largestBlock": true,
+                    "uptime": true,
+                    "loopDelay": true
+                },
+                "System.DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                },
+                "Sensor.SHT31": {
+                    "tempC": true,
+                    "humidity": true,
+                    "interval": true,
+                    "tempCOffset": true,
+                    "humOffset": true
+                }
+            }
+        },
+        "kitchen_01": {
+            "meta": {
+                "name": "Kitchen"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
+            "data": {
+                "System.SystemMonitor": {
+                    "uptime": true
+                },
+                "System.DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                },
+                "Sensor.DS18B20": {
+                    "tempC": true,
+                    "tempCOffset": true
+                },
+                "DeviceControl.Relay": {
+                    "autoOffRemaining": true,
+                    "isOn": true,
+                    "percentage": true,
+                    "autoOffTimer": true,
+                    "fadeDuration": true,
+                    "frequency": true
                 }
             }
         }

@@ -1,4 +1,6 @@
-function timeAgo(dateString) {
+let ws;
+
+function timeAgo(dateString) { // This function is already defined in utils.js, but keeping it here for self-containment if utils.js is not loaded.
     if (!dateString) return '';
     const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
 
@@ -15,68 +17,97 @@ function timeAgo(dateString) {
     return "Just now";
 }
 
-async function loadStatus() {
-    try {
-        const res = await fetch('/api/status');
-        const statuses = await res.json();
-        const tbody = document.querySelector('#statusTable tbody');
-        
-        tbody.innerHTML = '';
+const tbody = document.querySelector('#statusTable tbody');
 
-        statuses.forEach(status => {
-            const row = document.createElement('tr');
-            
-            const nameCell = document.createElement('td');
-            const idCell = document.createElement('td');
-            const statusCell = document.createElement('td');
-            
-            // Status Indicator
-            const indicator = document.createElement('span');
-            indicator.className = 'status-indicator';
-            
-            if (status.lastSeen && status.interval) {
-                const diff = Date.now() - new Date(status.lastSeen).getTime();
-                if (diff <= status.interval) {
-                    indicator.classList.add('status-ok');
-                } else if (diff <= status.interval * 2) {
-                    indicator.classList.add('status-warn');
-                } else {
-                    indicator.classList.add('status-crit');
-                }
-            } else {
-                indicator.classList.add('status-unknown');
-            }
-            statusCell.appendChild(indicator);
+function renderStatusTable(statuses) {
+    tbody.innerHTML = ''; // Clear existing rows
+    statuses.forEach(status => renderStatusRow(status));
+}
 
-            const nameLink = document.createElement('a');
-            nameLink.href = `manager.html?deviceId=${status.deviceId}`;
-            nameLink.className = 'device-badge';
-            nameLink.textContent = status.name;
-            nameCell.appendChild(nameLink);
+function renderStatusRow(status) {
+    let row = document.getElementById(`status-row-${status.deviceId}`);
+    if (!row) {
+        row = document.createElement('tr');
+        row.id = `status-row-${status.deviceId}`;
+        row.appendChild(document.createElement('td'));
+        row.appendChild(document.createElement('td'));
+        row.appendChild(document.createElement('td'));
+        row.appendChild(document.createElement('td'));
+        row.appendChild(document.createElement('td'));
+        tbody.appendChild(row);
+    }
 
-            idCell.textContent = status.deviceId;
-            
-            const timeCell = document.createElement('td');
-            const agoCell = document.createElement('td');
+    // Update cells
+    const nameCell = row.children[0];
+    const idCell = row.children[1];
+    const timeCell = row.children[2];
+    const agoCell = row.children[3];
+    const statusCell = row.children[4];
 
-            if (status.lastSeen) {
-                timeCell.textContent = new Date(status.lastSeen).toLocaleString();
-                agoCell.textContent = timeAgo(status.lastSeen);
-            } else {
-                timeCell.textContent = 'Never';
-                agoCell.textContent = '-';
-            }
+    // Name Cell (Badge)
+    const nameLink = nameCell.querySelector('.device-badge') || document.createElement('a');
+    nameLink.href = `manager.html?deviceId=${status.deviceId}`;
+    nameLink.className = 'device-badge';
+    nameLink.textContent = status.name;
+    if (!nameCell.querySelector('.device-badge')) nameCell.appendChild(nameLink);
 
-            row.appendChild(nameCell);
-            row.appendChild(idCell);
-            row.appendChild(timeCell);
-            row.appendChild(agoCell);
-            row.appendChild(statusCell);
-            tbody.appendChild(row);
-        });
-    } catch (err) {
-        console.error('Failed to load status', err);
+    // ID Cell
+    idCell.textContent = status.deviceId;
+
+    // Last Seen and Ago
+    if (status.lastSeen) {
+        timeCell.textContent = new Date(status.lastSeen).toLocaleString();
+        agoCell.textContent = timeAgo(status.lastSeen);
+    } else {
+        timeCell.textContent = 'Never';
+        agoCell.textContent = '-';
+    }
+
+    // Status Indicator
+    const indicator = statusCell.querySelector('.status-indicator') || document.createElement('span');
+    indicator.className = 'status-indicator';
+    indicator.classList.remove('status-ok', 'status-warn', 'status-crit', 'status-unknown');
+    if (status.lastSeen && status.interval) {
+        const diff = Date.now() - new Date(status.lastSeen).getTime();
+        if (diff <= status.interval) indicator.classList.add('status-ok');
+        else if (diff <= status.interval * 2) indicator.classList.add('status-warn');
+        else indicator.classList.add('status-crit');
+    } else {
+        indicator.classList.add('status-unknown');
+    }
+    if (!statusCell.querySelector('.status-indicator')) statusCell.appendChild(indicator);
+
+    // Append row if new, otherwise it's already in place
+    if (!row.parentNode) {
+        tbody.appendChild(row);
     }
 }
 
-loadStatus();
+function connectWebSocket() {
+    ws = new WebSocket(`ws://${window.location.host}`);
+
+    ws.onopen = () => {
+        console.log('WebSocket connected for status updates.');
+        ws.send(JSON.stringify({ type: 'GET_ALL_STATUSES' }));
+    };
+
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'ALL_STATUSES') {
+            renderStatusTable(msg.payload);
+        } else if (msg.type === 'STATUS_UPDATE') {
+            renderStatusRow(msg.payload);
+        }
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket disconnected for status updates. Reconnecting...');
+        setTimeout(connectWebSocket, 1000); // Attempt to reconnect after 1 second
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
+connectWebSocket();

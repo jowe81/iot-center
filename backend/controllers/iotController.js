@@ -2,8 +2,8 @@ import { createRequire } from 'module';
 import { getDb } from "../config/db.js";
 import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
-import { broadcast } from './websocketService.js';
-import { fetchDeviceStats } from './frontendController.js';
+import { broadcast, sendToClient } from './websocketService.js';
+import { fetchDeviceStats, getSingleDeviceStatusData } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
 import * as woodstoveState from '../plugins/data/woodstoveState.js';
@@ -190,6 +190,8 @@ const saveAndBroadcast = async (deviceId, filteredData, rawData, protocol) => {
     broadcast('LATEST', { deviceId, payload: filteredData });
     broadcast('LATEST_RAW', { deviceId, payload: rawData });
     const stats = await fetchDeviceStats(deviceId);
+    const singleDeviceStatus = await getSingleDeviceStatusData(deviceId);
+    broadcast('STATUS_UPDATE', singleDeviceStatus);
     broadcast('STATS', { deviceId, payload: stats });
 };
 

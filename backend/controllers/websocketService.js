@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import log from '../utils/logger.js';
-import { fetchDeviceStats, fetchLatestData, fetchDeviceData, fetchLatestRawData, fetchDeviceConfig } from './frontendController.js';
+import { fetchDeviceStats, fetchLatestData, fetchDeviceData, fetchLatestRawData, fetchDeviceConfig, getAllDeviceStatusesData } from './frontendController.js';
 
 let wss;
 
@@ -14,22 +14,28 @@ export const initWebSocket = (server) => {
         ws.on('message', async (message) => {
             try {
                 const req = JSON.parse(message);
-                
-                if (req.type === 'GET_STATS') {
-                    const data = await fetchDeviceStats(req.deviceId);
-                    ws.send(JSON.stringify({ type: 'STATS', deviceId: req.deviceId, payload: data }));
-                } else if (req.type === 'GET_LATEST') {
-                    const data = await fetchLatestData(req.deviceId);
-                    ws.send(JSON.stringify({ type: 'LATEST', deviceId: req.deviceId, payload: data }));
-                } else if (req.type === 'GET_LATEST_RAW') {
-                    const data = await fetchLatestRawData(req.deviceId);
-                    ws.send(JSON.stringify({ type: 'LATEST_RAW', deviceId: req.deviceId, payload: data }));
-                } else if (req.type === 'GET_DEVICE_CONFIG') {
-                    const data = await fetchDeviceConfig(req.deviceId);
-                    ws.send(JSON.stringify({ type: 'DEVICE_CONFIG', deviceId: req.deviceId, payload: data }));
-                } else if (req.type === 'GET_GRAPH') {
-                    const data = await fetchDeviceData(req.deviceId, req.options);
-                    ws.send(JSON.stringify({ type: 'GRAPH', deviceId: req.deviceId, payload: data, options: req.options }));
+
+                switch (req.type) {
+                    case 'GET_STATS':
+                        sendToClient(ws, 'STATS', await fetchDeviceStats(req.deviceId), { deviceId: req.deviceId });
+                        break;
+                    case 'GET_LATEST':
+                        sendToClient(ws, 'LATEST', await fetchLatestData(req.deviceId), { deviceId: req.deviceId });
+                        break;
+                    case 'GET_LATEST_RAW':
+                        sendToClient(ws, 'LATEST_RAW', await fetchLatestRawData(req.deviceId), { deviceId: req.deviceId });
+                        break;
+                    case 'GET_DEVICE_CONFIG':
+                        sendToClient(ws, 'DEVICE_CONFIG', await fetchDeviceConfig(req.deviceId), { deviceId: req.deviceId });
+                        break;
+                    case 'GET_GRAPH':
+                        sendToClient(ws, 'GRAPH', await fetchDeviceData(req.deviceId, req.options), { deviceId: req.deviceId, options: req.options });
+                        break;
+                    case 'GET_ALL_STATUSES':
+                        sendToClient(ws, 'ALL_STATUSES', await getAllDeviceStatusesData());
+                        break;
+                    default:
+                        log.warn(`[WS] Unknown message type: ${req.type}`);
                 }
             } catch (e) {
                 log.error('[WS] Socket handler error', e);
@@ -51,4 +57,10 @@ export const broadcast = (type, data) => {
             client.send(message);
         }
     });
+};
+
+export const sendToClient = (wsClient, type, payload, extra = {}) => {
+    if (wsClient.readyState === wsClient.OPEN) {
+        wsClient.send(JSON.stringify({ type, payload, ...extra }));
+    }
 };

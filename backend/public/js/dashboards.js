@@ -303,9 +303,18 @@ function renderDashboardRows(dashboard) {
             actionContent = btn;
         }
 
+        let subInfo = `${configKey}.${name}`;
+        const config = deviceConfigs[deviceId];
+        if (config) {
+             const metricConfig = (config[`${configKey}.${name}`] || config[`${configKey}.*`] || {})[metricKey];
+             if (metricConfig && typeof metricConfig === 'object' && metricConfig.plugin) {
+                 subInfo = `plugin: ${metricConfig.plugin}`;
+             }
+        }
+
         const keyCell = document.createElement('td');
         keyCell.className = 'key-cell';
-        keyCell.innerHTML = `<div class="device-name">${deviceName} <span style="color:#888; font-weight:normal;">(${configKey}.${name})</span></div><a href="graph.html?deviceId=${deviceId}&fields=data.${key}">${label}</a>`;
+        keyCell.innerHTML = `<div class="device-name">${deviceName} <span style="color:#888; font-weight:normal;">(${subInfo})</span></div><a href="graph.html?deviceId=${deviceId}&fields=data.${key}">${label}</a>`;
         row.appendChild(keyCell);
 
         const valueCell = document.createElement('td');

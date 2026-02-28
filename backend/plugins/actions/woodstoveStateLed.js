@@ -18,6 +18,12 @@ export const run = async (currentValue, options) => {
     }
 
     const state = String(currentValue).toLowerCase();
+
+    if (options._lastState === state) {
+        if (doLog) log.debug(`${LOG_TAG} State "${state}" unchanged. Skipping command.`);
+        return;
+    }
+
     const commandMap = options.stateToCommandMap || {};
     const commandConfig = commandMap[state];
 
@@ -28,8 +34,11 @@ export const run = async (currentValue, options) => {
 
         try {
             await addCommand(options.targetDevice, { [options.targetSubDevice]: commandConfig });
+            options._lastState = state;
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue command`, e);
         }
+    } else {
+        options._lastState = state;
     }
 };

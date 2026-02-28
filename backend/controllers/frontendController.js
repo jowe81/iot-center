@@ -384,7 +384,7 @@ export const getDeviceData = async (req, res) => {
     }
 };
 
-export const getDeviceStatus = async (req, res) => {
+const _getAllDeviceStatusesData = async () => {
     try {
         const db = getDb();
         const collections = await db.listCollections().toArray();
@@ -416,12 +416,29 @@ export const getDeviceStatus = async (req, res) => {
         });
 
         const statuses = await Promise.all(statusPromises);
-        statuses.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
-        
+        return statuses.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+    } catch (error) {
+        console.error("Error fetching all device statuses data:", error);
+        throw error;
+    }
+};
+
+export const getDeviceStatus = async (req, res) => {
+    try {
+        const statuses = await _getAllDeviceStatusesData();
         res.json(statuses);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+};
+
+export const getAllDeviceStatusesData = async () => {
+    return _getAllDeviceStatusesData();
+};
+
+export const getSingleDeviceStatusData = async (deviceId) => {
+    const allStatuses = await _getAllDeviceStatusesData();
+    return allStatuses.find(s => s.deviceId === deviceId);
 };
 
 export const fetchLatestData = async (deviceId) => {

@@ -1,4 +1,4 @@
-.status-ok { background-color: #28a745; }   /* Green */
+.status-ok { background-color: #28a745; }   /* Green */ /* This is already defined in style.css, but keeping it here for now */
 .status-warn { background-color: #ffc107; } /* Yellow */
 .status-crit { background-color: #dc3545; } /* Red */
 .status-unknown { background-color: #6c757d; } /* Grey */
