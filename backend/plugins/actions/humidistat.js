@@ -1,5 +1,6 @@
 import log from '../../utils/logger.js';
 import { addCommand } from '../../controllers/commandService.js';
+import { getDb } from '../../config/db.js';
 
 const LOG_TAG = '[Action: Humidistat]';
 
@@ -32,9 +33,42 @@ export const run = async (currentValue, options) => {
         desiredState = false;
     }
 
+    let shouldSend = false;
+    let reason = '';
+
     if (options._lastState !== desiredState) {
+        shouldSend = true;
+        reason = 'State changed';
+    } else if (desiredState === true) {
+        // Enforce ON state if device reports OFF
+        try {
+            const db = getDb();
+            const collection = db.collection(`device_${options.targetDevice}`);
+            const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+            
+            if (latestDoc && latestDoc.data) {
+                // Find subdevice in data structure: data.Type.Subtype.Name
+                outer:
+                for (const type of Object.values(latestDoc.data)) {
+                    for (const subtype of Object.values(type)) {
+                        if (subtype[options.targetSubDevice]) {
+                            if (subtype[options.targetSubDevice].isOn === false) {
+                                shouldSend = true;
+                                reason = 'Enforcing ON state';
+                            }
+                            break outer;
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            log.error(`${LOG_TAG} Error checking device state`, e);
+        }
+    }
+
+    if (shouldSend) {
         if (doLog) {
-            log.debug(`${LOG_TAG} Humidity ${currentValue}% (Set: ${setPoint}, Hyst: ${hysteresis}). Switching ${desiredState ? 'ON' : 'OFF'}.`);
+            log.debug(`${LOG_TAG} Humidity ${currentValue}% (Set: ${setPoint}, Hyst: ${hysteresis}). Switching ${desiredState ? 'ON' : 'OFF'}. Reason: ${reason}`);
         }
 
         try {

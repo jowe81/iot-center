@@ -30,12 +30,43 @@
                 "targetDevice": "recroom_01",
                 "targetSubDevice": "woodstoveStatusLed",
                 "stateToCommandMap": {
-                    "off": { "setR": 0, "setG": 0, "setB": 0, "setState": false, "setPercentage": 0 },
-                    "cooldown": { "setR": 0, "setG": 0, "setB": 255, "setState": true, "setPercentage": 1 },
-                    "warumup": { "setR": 100, "setG": 0, "setB": 0, "setState": true, "setPercentage": 1 },
-                    "running": { "setR": 0, "setG": 255, "setB": 0, "setState": true, "setPercentage": 2 },
-                    "refuel": { "setR": 255, "setG": 0, "setB": 0, "setState": true, "setPercentage": 20 }
-                }
+                    "off": {
+                        "setR": 0,
+                        "setG": 0,
+                        "setB": 0,
+                        "setState": false,
+                        "setPercentage": 0
+                    },
+                    "cooldown": {
+                        "setR": 0,
+                        "setG": 0,
+                        "setB": 255,
+                        "setState": true,
+                        "setPercentage": 1
+                    },
+                    "warumup": {
+                        "setR": 100,
+                        "setG": 0,
+                        "setB": 0,
+                        "setState": true,
+                        "setPercentage": 1
+                    },
+                    "running": {
+                        "setR": 0,
+                        "setG": 255,
+                        "setB": 0,
+                        "setState": true,
+                        "setPercentage": 2
+                    },
+                    "refuel": {
+                        "setR": 255,
+                        "setG": 0,
+                        "setB": 0,
+                        "setState": true,
+                        "setPercentage": 20
+                    }
+                },
+                "_lastState": "running"
             }
         },
         {
@@ -49,8 +80,9 @@
                 "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
                 "targetDevice": "office_johannes_01",
                 "targetSubDevice": "humidifier",
-                "setPoint": 45,
-                "hysteresis": 2
+                "setPoint": 35,
+                "hysteresis": 2,
+                "_lastState": true
             }
         }
     ],
@@ -75,7 +107,8 @@
             "metrics": [
                 "livingroom_01.Sensor.SHT31.shtSensor.humidity",
                 "recroom_01.Sensor.SHT31.shtSensor.humidity",
-                "woodshed_01.Sensor.BME280.controlBox.humidity"
+                "woodshed_01.Sensor.BME280.controlBox.humidity",
+                "office_johannes_01.Sensor.SHT31.shtSensor.humidity"
             ]
         },
         {
@@ -98,7 +131,7 @@
             "trigger": {
                 "type": "celestial",
                 "event": "sunset",
-                "offsetMinutes": 45
+                "offsetMinutes": 30
             },
             "targets": [
                 {
@@ -170,7 +203,7 @@
                     "deviceId": "kitchen_01",
                     "subDevice": "counterLights",
                     "command": "setPercentage",
-                    "argument": 50
+                    "argument": 60
                 }
             ]
         },
@@ -202,7 +235,7 @@
                     "deviceId": "kitchen_01",
                     "subDevice": "counterLights",
                     "command": "setPercentage",
-                    "argument": 10
+                    "argument": 5
                 }
             ]
         }
@@ -232,10 +265,16 @@
                     "netCharge_Wh": {
                         "plugin": "batteryCharge",
                         "inputKeys": [
-                            "Sensor.INA219.chargeMeter.power_mW"
+                            "Sensor.INA219.chargeMeter.power_mW",
+                            "Sensor.INA219.chargeMeter.voltage_V"
                         ],
                         "options": {
-                            "efficiencyFactor": 0.85
+                            "efficiencyFactor": 0.85,
+                            "fullVoltageThreshold": 13.6,
+                            "tailCurrentPowerThreshold": 500,
+                            "fullDurationMinutes": 10,
+                            "dischargeThresholdWh": 6,
+                            "_minNetChargeSinceReset": 8895.770928953736
                         },
                         "outputScale": 0.001
                     }
@@ -425,6 +464,12 @@
                     "interval": true,
                     "tempCOffset": true,
                     "humOffset": true
+                },
+                "Sensor.Capacitive": {
+                    "value": true
+                },
+                "DeviceControl.Relay": {
+                    "isOn": true
                 }
             }
         },
