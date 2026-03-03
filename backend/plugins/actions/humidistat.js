@@ -1,6 +1,7 @@
 import log from '../../utils/logger.js';
 import { addCommand } from '../../controllers/commandService.js';
 import { getDb } from '../../config/db.js';
+import { getValue } from '../../utils/dataUtils.js';
 
 const LOG_TAG = '[Action: Humidistat]';
 
@@ -35,6 +36,26 @@ export const run = async (currentValue, options) => {
 
     let shouldSend = false;
     let reason = '';
+
+    // Check tank level override if configured
+    if (options.tankDevice && options.tankKey && options.tankThreshold !== undefined) {
+        try {
+            const db = getDb();
+            const collection = db.collection(`device_${options.tankDevice}`);
+            const latestTankDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+            const tankLevel = getValue(latestTankDoc, options.tankKey);
+            
+            if (typeof tankLevel === 'number') {
+                // User specified: >70 is empty. Turn off if empty.
+                if (tankLevel > options.tankThreshold) {
+                    desiredState = false;
+                    reason = `Tank empty (${tankLevel})`;
+                }
+            }
+        } catch (e) {
+            log.error(`${LOG_TAG} Error checking tank level`, e);
+        }
+    }
 
     if (options._lastState !== desiredState) {
         shouldSend = true;

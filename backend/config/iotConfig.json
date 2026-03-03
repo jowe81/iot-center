@@ -82,7 +82,10 @@
                 "targetSubDevice": "humidifier",
                 "setPoint": 35,
                 "hysteresis": 2,
-                "_lastState": true
+                "_lastState": true,
+                "tankDevice": "office_johannes_01",
+                "tankKey": "data.Sensor.Capacitive.humidifierTank",
+                "tankThreshold": 70
             }
         }
     ],
