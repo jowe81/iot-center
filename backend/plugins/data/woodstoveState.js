@@ -33,7 +33,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
-    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 15;
+    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 10;
     
     let AMBIENT_TEMP = options.ambientTemp || 25;
     if (inputKeys.length > 1) {
@@ -46,11 +46,12 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     }
     
     // Thresholds (Slope in deg/min, Drops in %)
-    const RISE_THRESHOLD = options.riseThreshold || 0.03; 
-    const STABLE_THRESHOLD = options.stableThreshold || 0.2; 
-    const DROP_THRESHOLD = options.dropThreshold || -0.5; 
-    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.03; // 8% drop from peak
-    const RELATIVE_DROP_COOLDOWN = options.relativeDropCooldown || 0.40; // 40% drop from peak
+    const RISE_THRESHOLD = options.riseThreshold || 0.03;
+    const DROP_THRESHOLD = options.dropThreshold || -0.05;
+    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.05; // 5% drop from peak
+    const RELATIVE_DROP_COOLDOWN = options.relativeDropCooldown || 0.30; // 30% drop from peak
+    const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 40;
+    const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 5; // Temp considered 'off'
 
     // Fetch History
     const collection = db.collection(`device_${deviceId}`);
@@ -103,74 +104,59 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Calculate Max Temp in the history window (local peak)
     const maxTemp = Math.max(...points.map(p => p.val));
-    const minTemp = Math.min(...points.map(p => p.val));
-    if (doLog) log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}, minTemp=${minTemp.toFixed(2)}`);
+    if (doLog) {
+        log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}`);
+        log.debug(`${LOG_TAG} Thresholds: RUNNING=${RUNNING_TEMP_THRESHOLD}, OFF=${OFF_TEMP_THRESHOLD}, RISE=${RISE_THRESHOLD}, DROP=${DROP_THRESHOLD}`);
+    }
 
     let newState = previousState;
 
     switch (previousState) {
         case 'off':
+            // Only transition to 'warmup' is allowed.
+            // Condition: Temp is rising and above ambient.
             if (slope > RISE_THRESHOLD && currentTemp > AMBIENT_TEMP) {
-                newState = 'warmup';
-            } else if (currentTemp > AMBIENT_TEMP + 10) {
-                newState = 'running';
-            } else if (currentTemp > minTemp + 4) {
                 newState = 'warmup';
             }
             break;
 
         case 'warmup':
-            if (currentTemp > AMBIENT_TEMP + 10) {
+            // To 'running': Temp has passed the running threshold.
+            if (currentTemp > RUNNING_TEMP_THRESHOLD) {
                 newState = 'running';
-            } else if (slope < DROP_THRESHOLD) {
+            }
+            // To 'cooldown': Temp is dropping (fire went out).
+            else if (slope < DROP_THRESHOLD) {
                 newState = 'cooldown';
             }
             break;
 
         case 'running':
-            if (currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL)) {
+            // Only transition to 'refuel' is allowed.
+            // Condition: Significant relative drop from the peak temp AND temp is not rising.
+            if (currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL) && slope <= DROP_THRESHOLD) {
                 newState = 'refuel';
-            } else if (currentTemp < AMBIENT_TEMP + 10) {
-                newState = 'cooldown';
             }
             break;
 
         case 'refuel':
-            let minTempSinceRefuel = currentTemp;
-            // Iterate backwards to find the lowest temperature in the current refuel phase
-            for (let i = points.length - 2; i >= 0; i--) {
-                const p = points[i];
-                const pState = p.state ? String(p.state).toLowerCase() : '';
-                if (pState && pState !== 'refuel') {
-                    break;
-                }
-                if (p.val < minTempSinceRefuel) {
-                    if (doLog) log.debug(`${LOG_TAG} Found lower temp in refuel history: ${p.val} (was ${minTempSinceRefuel})`);
-                    minTempSinceRefuel = p.val;
-                }
-            }
-
-            if (doLog) {
-                log.debug(`${LOG_TAG} Refuel check: currentTemp=${currentTemp}, minTempSinceRefuel=${minTempSinceRefuel}, threshold=${minTempSinceRefuel + 1.5}`);
-            }
-
-            if (currentTemp > minTempSinceRefuel + 1) {
+            // To 'running': Temp starts rising again.
+            if (slope > RISE_THRESHOLD) {
                 newState = 'running';
-            } else if (slope > RISE_THRESHOLD) {
-                newState = 'running';
-            } else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN)) {
-                newState = 'cooldown';
-            } else if (currentTemp < AMBIENT_TEMP + 10) {
+            }
+            // To 'cooldown': Temp continues to drop significantly or falls below running temp.
+            else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN) || currentTemp < RUNNING_TEMP_THRESHOLD) {
                 newState = 'cooldown';
             }
             break;
 
         case 'cooldown':
-            if (currentTemp < AMBIENT_TEMP + 2) {
+            // To 'off': Temp is back near ambient.
+            if (currentTemp < OFF_TEMP_THRESHOLD) {
                 newState = 'off';
-            } else if (slope > RISE_THRESHOLD) {
-                newState = 'warmup';
-            } else if (slope > 0 && (currentTemp > AMBIENT_TEMP + 10)) {
+            }
+            // To 'warmup': It's heating up again.
+            else if (slope > RISE_THRESHOLD) {
                 newState = 'warmup';
             }
             break;
