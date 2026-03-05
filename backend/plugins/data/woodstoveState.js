@@ -46,36 +46,53 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     }
     
     // Thresholds (Slope in deg/min, Drops in %)
-    const RISE_THRESHOLD = options.riseThreshold || 0.03;
-    const DROP_THRESHOLD = options.dropThreshold || -0.05;
+    const RISE_THRESHOLD = options.riseThreshold || 0.02;
+    const DROP_THRESHOLD = options.dropThreshold || -0.3;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.05; // 5% drop from peak
     const RELATIVE_DROP_COOLDOWN = options.relativeDropCooldown || 0.30; // 30% drop from peak
+    const REFUEL_RECOVERY_SLOPE = options.refuelRecoverySlope || -0.4
     const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 40;
     const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 5; // Temp considered 'off'
 
-    // Fetch History
-    const collection = db.collection(`device_${deviceId}`);
-    const historyStartTime = new Date(Date.now() - HISTORY_MINUTES * 60 * 1000);
-    
-    const historyDocs = await collection.find(
-        { 
-            receivedAt: { $gte: historyStartTime },
-            [`data.${tempKey}`]: { $exists: true }
-        },
-        {
-            sort: { receivedAt: 1 },
-            projection: { receivedAt: 1, [`data.${tempKey}`]: 1, [`data.${outputKey}`]: 1 }
-        }
-    ).toArray();
+    let points = options._points;
 
-    const points = historyDocs.map(doc => ({
-        time: doc.receivedAt.getTime(),
-        val: getValue(doc, `data.${tempKey}`),
-        state: getValue(doc, `data.${outputKey}`)
-    })).filter(p => typeof p.val === 'number');
+    // If history is not in memory, it's the first run or a restart. Fetch from DB.
+    if (!points) {
+        if (doLog) log.debug(`${LOG_TAG} No history in memory, fetching from DB.`);
+        const collection = db.collection(`device_${deviceId}`);
+        const historyStartTime = new Date(Date.now() - HISTORY_MINUTES * 60 * 1000);
+        
+        const historyDocs = await collection.find(
+            { 
+                receivedAt: { $gte: historyStartTime },
+                [`data.${tempKey}`]: { $exists: true }
+            },
+            {
+                sort: { receivedAt: 1 },
+                projection: { receivedAt: 1, [`data.${tempKey}`]: 1, [`data.${outputKey}`]: 1 }
+            }
+        ).toArray();
+
+        points = historyDocs.map(doc => ({
+            time: doc.receivedAt.getTime(),
+            val: getValue(doc, `data.${tempKey}`),
+            state: getValue(doc, `data.${outputKey}`)
+        })).filter(p => typeof p.val === 'number');
+    }
 
     // Add current point
     points.push({ time: Date.now(), val: currentTemp });
+
+    // Prune old points to keep the history window fixed
+    const historyCutoff = Date.now() - (HISTORY_MINUTES * 60 * 1000);
+    const oldPointsLength = points.length;
+    points = points.filter(p => p.time >= historyCutoff);
+    if (doLog && oldPointsLength > points.length) {
+        log.debug(`${LOG_TAG} Pruned ${oldPointsLength - points.length} old point(s) from history.`);
+    }
+
+    // Persist for next run
+    options._points = points;
 
     // Calculate Slope (Linear Regression over last SLOPE_WINDOW_MINUTES)
     const slopeWindowStart = Date.now() - SLOPE_WINDOW_MINUTES * 60 * 1000;
@@ -115,7 +132,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
         case 'off':
             // Only transition to 'warmup' is allowed.
             // Condition: Temp is rising and above ambient.
-            if (slope > RISE_THRESHOLD && currentTemp > AMBIENT_TEMP) {
+            if (slope > RISE_THRESHOLD && currentTemp > AMBIENT_TEMP + 2) {
                 newState = 'warmup';
             }
             break;
@@ -140,11 +157,11 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             break;
 
         case 'refuel':
-            // To 'running': Temp starts rising again.
-            if (slope > RISE_THRESHOLD) {
+            // To 'running': Temp starts rising again OR has flattened while still hot.
+            if ((slope > RISE_THRESHOLD) || (currentTemp > RUNNING_TEMP_THRESHOLD && slope > REFUEL_RECOVERY_SLOPE)) {
                 newState = 'running';
             }
-            // To 'cooldown': Temp continues to drop significantly or falls below running temp.
+            // To 'cooldown': Temp continues to drop or falls below running temp.
             else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN) || currentTemp < RUNNING_TEMP_THRESHOLD) {
                 newState = 'cooldown';
             }
