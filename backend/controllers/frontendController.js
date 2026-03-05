@@ -7,6 +7,7 @@ import { sendMqttCommand } from './mqttService.js';
 import { addCommand, markCommandAsSent } from './commandService.js';
 import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
 import { getRawData } from '../utils/rawDataStore.js';
+import { reloadActions } from './actionService.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -31,15 +32,55 @@ export const getDevices = async (req, res) => {
     }
 };
 
+export const getDeviceActions = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const actions = (iotConfig.actions || []).filter(a => 
+            (a.options && a.options.sourceDevice === deviceId) || 
+            (a.options && a.options.targetDevice === deviceId) ||
+            (a.options && a.options.tankDevice === deviceId)
+        );
+        res.json(actions);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateAction = async (req, res) => {
+    try {
+        const { name } = req.params;
+        const updates = req.body;
+        
+        const action = (iotConfig.actions || []).find(a => a.name === name);
+        if (!action) {
+            return res.status(404).json({ error: 'Action not found' });
+        }
+
+        if (updates.enabled !== undefined) action.enabled = updates.enabled;
+        if (updates.interval !== undefined) action.interval = updates.interval;
+        if (updates.options) {
+            action.options = { ...action.options, ...updates.options };
+        }
+
+        await saveConfig();
+        reloadActions();
+        
+        res.json(action);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 const saveConfig = async () => {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const configPath = path.join(__dirname, '../config/iotConfig.json');
+        const configPath = path.join(__dirname, '../config/iotConfig.json');        
         await fs.writeFile(configPath, JSON.stringify(iotConfig, null, 4));
     } catch (error) {
         console.error('Failed to save config:', error);
     }
+    console.log('saved config')
 };
 
 export const getDashboards = async (req, res) => {

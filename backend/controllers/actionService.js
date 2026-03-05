@@ -8,6 +8,7 @@ const iotConfig = require('../config/iotConfig.json');
 const LOG_TAG = '[ActionService]';
 
 const loadedPlugins = {};
+let runningIntervals = [];
 
 const getPlugin = async (name) => {
     if (loadedPlugins[name]) {
@@ -54,6 +55,10 @@ const runAction = async (actionConfig) => {
 };
 
 export const initActionService = () => {
+    // Clear existing intervals
+    runningIntervals.forEach(clearInterval);
+    runningIntervals = [];
+
     const actions = iotConfig.actions || [];
     if (actions.length > 0) {
         log.info(`${LOG_TAG} Initializing...`);
@@ -61,8 +66,14 @@ export const initActionService = () => {
             if (action.enabled) {
                 const interval = action.interval || 60000;
                 log.info(`${LOG_TAG} Scheduling action "${action.name}" to run every ${interval}ms`);
-                setInterval(() => runAction(action), interval);
+                const id = setInterval(() => runAction(action), interval);
+                runningIntervals.push(id);
             }
         });
     }
+};
+
+export const reloadActions = () => {
+    log.info(`${LOG_TAG} Reloading actions...`);
+    initActionService();
 };

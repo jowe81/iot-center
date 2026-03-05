@@ -175,10 +175,121 @@ function selectDevice(deviceId) {
     if (deviceId) {
         requestStats(deviceId);
         loadSchedules(deviceId);
+        loadActions(deviceId);
     } else {
         deviceStats.style.display = 'none';
         const schedulesDiv = document.getElementById('deviceSchedules');
         if (schedulesDiv) schedulesDiv.style.display = 'none';
+    }
+}
+
+async function loadActions(deviceId) {
+    try {
+        const res = await fetch(`/api/device/${deviceId}/actions`);
+        const actions = await res.json();
+        renderActions(actions);
+    } catch (err) {
+        console.error('Failed to load actions', err);
+    }
+}
+
+function renderActions(actions) {
+    const container = document.getElementById('deviceActions');
+    const list = document.getElementById('actionsList');
+    list.innerHTML = '';
+
+    if (actions.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+
+    actions.forEach(action => {
+        const div = document.createElement('div');
+        div.className = 'action-card';
+        
+        // Header with Enable Toggle
+        const header = document.createElement('div');
+        header.className = 'action-header';
+        header.innerHTML = `<h4>${action.name}</h4>`;
+        
+        const toggle = document.createElement('label');
+        toggle.className = 'switch';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = action.enabled;
+        input.onchange = () => updateAction(action.name, { enabled: input.checked });
+        
+        const slider = document.createElement('span');
+        slider.className = 'slider round';
+        
+        toggle.appendChild(input);
+        toggle.appendChild(slider);
+        header.appendChild(toggle);
+        div.appendChild(header);
+
+        // Options inputs
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'action-options';
+        
+        for (const [key, value] of Object.entries(action.options || {})) {
+            if (key.startsWith('_')) continue; // Skip internal state
+            if (['sourceDevice', 'sourceKey', 'targetDevice', 'targetSubDevice', 'tankDevice', 'tankKey'].includes(key)) continue; // Skip wiring config
+
+            const row = document.createElement('div');
+            row.className = 'option-row';
+            
+            const label = document.createElement('label');
+            label.textContent = key;
+            
+            let optInput;
+            if (typeof value === 'boolean') {
+                optInput = document.createElement('select');
+                optInput.innerHTML = '<option value="true">true</option><option value="false">false</option>';
+                optInput.value = value.toString();
+            } else {
+                optInput = document.createElement('input');
+                optInput.type = typeof value === 'number' ? 'number' : 'text';
+                optInput.value = value;
+                if (typeof value === 'number' && (key.toLowerCase().includes('point') || key.toLowerCase().includes('threshold'))) {
+                     optInput.step = 'any';
+                }
+            }
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = 'Set';
+            saveBtn.className = 'btn btn-secondary btn-sm';
+            saveBtn.onclick = () => {
+                let val = optInput.value;
+                if (typeof value === 'number') val = parseFloat(val);
+                if (typeof value === 'boolean') val = val === 'true';
+                
+                updateAction(action.name, { options: { [key]: val } });
+            };
+
+            row.appendChild(label);
+            row.appendChild(optInput);
+            row.appendChild(saveBtn);
+            optionsDiv.appendChild(row);
+        }
+        div.appendChild(optionsDiv);
+        list.appendChild(div);
+    });
+}
+
+async function updateAction(name, updates) {
+    try {
+        await fetch(`/api/actions/${encodeURIComponent(name)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        // Reload to refresh UI
+        const params = new URLSearchParams(window.location.search);
+        loadActions(params.get('deviceId'));
+    } catch (err) {
+        console.error('Failed to update action', err);
+        alert('Failed to update action');
     }
 }
 

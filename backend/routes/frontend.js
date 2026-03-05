@@ -16,5 +16,7 @@ router.get('/dashboards', frontendController.getDashboards);
 router.post('/dashboards', frontendController.saveDashboard);
 router.delete('/dashboards/:id', frontendController.deleteDashboard);
 router.get('/dashboards/:id/values', frontendController.getDashboardValues);
+router.get('/device/:deviceId/actions', frontendController.getDeviceActions);
+router.put('/actions/:name', frontendController.updateAction);
 
 export default router;

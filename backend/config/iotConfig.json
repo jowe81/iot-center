@@ -66,7 +66,7 @@
                         "setPercentage": 20
                     }
                 },
-                "_lastState": "running"
+                "_lastState": "warmup"
             }
         },
         {
@@ -75,17 +75,17 @@
             "plugin": "humidistat",
             "interval": 60000,
             "options": {
-                "log": true,
+                "log": "debug",
                 "sourceDevice": "office_johannes_01",
                 "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
                 "targetDevice": "office_johannes_01",
                 "targetSubDevice": "humidifier",
-                "setPoint": 32,
-                "hysteresis": 3,
-                "_lastState": true,
+                "setPoint": 35,
+                "hysteresis": 4,
                 "tankDevice": "office_johannes_01",
                 "tankKey": "data.Sensor.Capacitive.humidifierTank",
-                "tankThreshold": 70
+                "tankEmptyThreshold": 60,
+                "tankRefillThreshold": 50
             }
         }
     ],
@@ -119,6 +119,7 @@
             "name": "Temperatures",
             "metrics": [
                 "livingroom_01.Sensor.SHT31.shtSensor.tempC",
+                "office_johannes_01.Sensor.SHT31.shtSensor.tempC",
                 "recroom_01.Sensor.SHT31.shtSensor.tempC",
                 "recroom_01.Sensor.DS18B20.woodstove.tempC",
                 "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
@@ -277,7 +278,7 @@
                             "tailCurrentPowerThreshold": 500,
                             "fullDurationMinutes": 10,
                             "dischargeThresholdWh": 6,
-                            "_minNetChargeSinceReset": 8895.770928953736
+                            "_minNetChargeSinceReset": 281.14949283200446
                         },
                         "outputScale": 0.001
                     }
