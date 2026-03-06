@@ -67,7 +67,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.05; // 5% drop from peak
     const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.02;
-    const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 40;
+    const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 35;
     const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 2; // Temp considered 'off'
 
     const historyCutoff = Date.now() - (HISTORY_MINUTES * 60 * 1000);

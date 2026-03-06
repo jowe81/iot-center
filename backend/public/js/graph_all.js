@@ -21,6 +21,7 @@ let deviceConfigs = {};
 const ws = new WebSocket(`ws://${window.location.host}`);
 let allFieldOptions = [];
 const chartDataCache = {};
+const chartMappingsCache = {};
 
 ws.onopen = () => {
     updateChart();
@@ -30,6 +31,7 @@ ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     if (msg.type === 'GRAPH') {
         chartDataCache[msg.deviceId] = msg.payload;
+        chartMappingsCache[msg.deviceId] = msg.mappings;
         renderChart();
     }
 };
@@ -177,6 +179,42 @@ function updateChart() {
 }
 
 function renderChart() {
+        // Render Legend for Mappings
+        let legendContainer = document.getElementById('chartLegend');
+        if (!legendContainer) {
+            legendContainer = document.createElement('div');
+            legendContainer.id = 'chartLegend';
+            legendContainer.style.marginTop = '10px';
+            legendContainer.style.padding = '10px';
+            legendContainer.style.backgroundColor = '#f9f9f9';
+            legendContainer.style.borderRadius = '4px';
+            legendContainer.style.fontSize = '0.9em';
+            legendContainer.style.color = '#333';
+            ctx.canvas.parentNode.appendChild(legendContainer);
+        }
+        legendContainer.innerHTML = '';
+        legendContainer.style.display = 'none';
+
+        // Aggregate mappings from all devices
+        const allMappings = {};
+        Object.entries(chartMappingsCache).forEach(([deviceId, mappings]) => {
+            if (mappings) {
+                Object.assign(allMappings, mappings); // Keyed by field name, might overlap if same field name
+                // To be safer we could prefix with deviceId, but let's keep it simple for now
+                Object.keys(mappings).forEach(field => {
+                     const map = mappings[field];
+                     const mapStr = Object.entries(map)
+                        .sort((a, b) => a[1] - b[1])
+                        .map(([state, val]) => `<b>${val}</b>=${state}`)
+                        .join(', ');
+                     const div = document.createElement('div');
+                     div.innerHTML = `<strong>${deviceId} - ${field.replace(/^data\./, '')}</strong>: ${mapStr}`;
+                     legendContainer.appendChild(div);
+                     legendContainer.style.display = 'block';
+                });
+            }
+        });
+
         const interpolation = interpolationSelect.value;
 
         let tension = 0;

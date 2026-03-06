@@ -31,7 +31,7 @@ ws.onopen = () => {
 ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     if (msg.type === 'GRAPH' && msg.deviceId === deviceSelect.value) {
-        renderChartData(msg.payload, msg.options);
+        renderChartData(msg.payload, msg.options, msg.mappings);
     }
 };
 
@@ -188,7 +188,39 @@ async function updateChart() {
     }
 }
 
-function renderChartData(dataMap, options) {
+function renderChartData(dataMap, options, mappings) {
+        // Render Legend for Mappings
+        let legendContainer = document.getElementById('chartLegend');
+        if (!legendContainer) {
+            legendContainer = document.createElement('div');
+            legendContainer.id = 'chartLegend';
+            legendContainer.style.marginTop = '10px';
+            legendContainer.style.padding = '10px';
+            legendContainer.style.backgroundColor = '#f9f9f9';
+            legendContainer.style.borderRadius = '4px';
+            legendContainer.style.fontSize = '0.9em';
+            legendContainer.style.color = '#333';
+            ctx.canvas.parentNode.appendChild(legendContainer);
+        }
+        legendContainer.innerHTML = '';
+        legendContainer.style.display = 'none';
+
+        if (mappings && Object.keys(mappings).length > 0) {
+            legendContainer.style.display = 'block';
+            Object.keys(mappings).forEach(field => {
+                const map = mappings[field];
+                if (map) {
+                    const mapStr = Object.entries(map)
+                        .sort((a, b) => a[1] - b[1])
+                        .map(([state, val]) => `<b>${val}</b>=${state}`)
+                        .join(', ');
+                    const div = document.createElement('div');
+                    div.innerHTML = `<strong>${field.replace(/^data\./, '')}</strong>: ${mapStr}`;
+                    legendContainer.appendChild(div);
+                }
+            });
+        }
+
         const interpolation = options.interpolation || interpolationSelect.value;
         const selectedOptions = Object.keys(dataMap);
         

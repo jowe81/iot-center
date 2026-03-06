@@ -338,6 +338,13 @@
                         ],
                         "options": {
                             "log": "debug"
+                        },
+                        "valueMap": {
+                            "off": 0,
+                            "cooldown": 10,
+                            "warmup": 20,
+                            "refuel": 30,
+                            "running": 40
                         }
                     }
                 },

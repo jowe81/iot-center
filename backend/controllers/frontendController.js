@@ -395,13 +395,61 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
         }
 
         const result = {};
+        const mappings = {};
+        const deviceConfig = iotConfig.devices?.[deviceId]?.data || {};
 
         fieldsToFetch.forEach(field => {
-            // Format for Chart.js (x: time, y: value)
-            result[field] = data.map(doc => {
-                // Resolve nested property
-                let value = field.split('.').reduce((obj, key) => (obj && obj[key] !== undefined) ? obj[key] : null, doc);
+            // Extract raw values first to detect types
+            const rawPoints = data.map(doc => {
+                const value = field.split('.').reduce((obj, key) => (obj && obj[key] !== undefined) ? obj[key] : null, doc);
+                return { doc, value };
+            });
+
+            // Resolve config for this field to check for valueMap
+            let customMap = null;
+            const fieldPath = field.startsWith('data.') ? field.substring(5) : field;
+            const parts = fieldPath.split('.');
+            
+            if (parts.length >= 2) {
+                const metric = parts.pop();
+                const parentPath = parts.join('.');
                 
+                // Try exact match
+                let groupConfig = deviceConfig[parentPath];
+                
+                // Try wildcard (assuming 3 levels: Type.Subtype.Name -> Type.Subtype.*)
+                if (!groupConfig && parts.length >= 2) {
+                     const wildcardPath = parts.slice(0, 2).join('.') + '.*';
+                     groupConfig = deviceConfig[wildcardPath];
+                }
+                
+                if (groupConfig && groupConfig[metric] && typeof groupConfig[metric] === 'object' && groupConfig[metric].valueMap) {
+                    customMap = groupConfig[metric].valueMap;
+                }
+            }
+
+            // Handle string values by mapping them to integers
+            const stringValues = rawPoints.filter(p => typeof p.value === 'string').map(p => p.value);
+            let stringMap = null;
+            if (stringValues.length > 0) {
+                if (customMap) {
+                    stringMap = customMap;
+                } else {
+                    const unique = [...new Set(stringValues)].sort();
+                    stringMap = {};
+                    unique.forEach((val, idx) => { stringMap[val] = idx; });
+                }
+                mappings[field] = stringMap;
+            }
+
+            // Format for Chart.js (x: time, y: value)
+            result[field] = rawPoints.map(p => {
+                let value = p.value;
+                
+                if (stringMap && typeof value === 'string') {
+                    value = stringMap[value] !== undefined ? stringMap[value] : null;
+                }
+
                 // Apply rounding if requested and value is a number
                 if (accuracy && accuracy !== 'raw' && typeof value === 'number') {
                     const step = parseFloat(accuracy);
@@ -409,11 +457,11 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
                         value = Math.round(value / step) * step;
                     }
                 }
-                return { x: doc.receivedAt, y: value };
+                return { x: p.doc.receivedAt, y: value };
             }).filter(point => point.y !== null).reverse(); // Reverse to chronological order
         });
 
-        return result;
+        return { data: result, mappings };
     } catch (error) {
         throw error;
     }
@@ -421,8 +469,8 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
 
 export const getDeviceData = async (req, res) => {
     try {
-        const result = await fetchDeviceData(req.params.deviceId, req.query);
-        res.json(result);
+        const { data, mappings } = await fetchDeviceData(req.params.deviceId, req.query);
+        res.json({ data, mappings });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

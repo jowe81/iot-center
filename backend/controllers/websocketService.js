@@ -29,7 +29,8 @@ export const initWebSocket = (server) => {
                         sendToClient(ws, 'DEVICE_CONFIG', await fetchDeviceConfig(req.deviceId), { deviceId: req.deviceId });
                         break;
                     case 'GET_GRAPH':
-                        sendToClient(ws, 'GRAPH', await fetchDeviceData(req.deviceId, req.options), { deviceId: req.deviceId, options: req.options });
+                        const graphData = await fetchDeviceData(req.deviceId, req.options);
+                        sendToClient(ws, 'GRAPH', graphData.data, { deviceId: req.deviceId, options: req.options, mappings: graphData.mappings });
                         break;
                     case 'GET_ALL_STATUSES':
                         sendToClient(ws, 'ALL_STATUSES', await getAllDeviceStatusesData());

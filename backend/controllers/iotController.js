@@ -253,7 +253,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         if (Object.keys(commands).length > 0) {
             Object.assign(responsePayload, commands);
-            log.info(`[CommandQueue]Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
+            log.info(`[CommandQueue] Sending commands to ${deviceId}: ${JSON.stringify(commands)}`);
         }
 
         return { statusCode: 201, payload: responsePayload, commands, deviceId };
