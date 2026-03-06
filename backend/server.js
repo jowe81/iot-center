@@ -19,7 +19,8 @@ const iotConfig = require('./config/iotConfig.json');
 
 const app = express();
 
-log.info(`[System] Backend starting up...`)
+log.info(`-------------------------------`);
+log.info(`[System] Backend starting up...`);
 
 // Connect to Database
 connectDB().then(() => {

@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../config/db.js';
+import log from '../utils/logger.js';
 import { sendMqttCommand } from './mqttService.js';
 import { addCommand, markCommandAsSent } from './commandService.js';
 import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
@@ -71,16 +72,18 @@ export const updateAction = async (req, res) => {
     }
 };
 
+// Save the configuration but ignore any keys that start with an underscore (plugins may add those for internal caching)
 const saveConfig = async () => {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
         const configPath = path.join(__dirname, '../config/iotConfig.json');        
-        await fs.writeFile(configPath, JSON.stringify(iotConfig, null, 4));
+        const replacer = (key, value) => key.startsWith('_') ? undefined : value;
+        await fs.writeFile(configPath, JSON.stringify(iotConfig, replacer, 4));
     } catch (error) {
-        console.error('Failed to save config:', error);
+        log.error('Failed to save config:', error);
     }
-    console.log('saved config')
+    log.info('Saved the configuration.');
 };
 
 export const getDashboards = async (req, res) => {
@@ -459,7 +462,7 @@ const _getAllDeviceStatusesData = async () => {
         const statuses = await Promise.all(statusPromises);
         return statuses.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
     } catch (error) {
-        console.error("Error fetching all device statuses data:", error);
+        log.error("Error fetching all device statuses data:", error);
         throw error;
     }
 };

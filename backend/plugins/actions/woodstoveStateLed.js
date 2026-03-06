@@ -18,7 +18,7 @@ const STATE_TO_COMMAND_MAP = {
         setState: true,
         setPercentage: 1,
     },
-    warumup: {
+    warmup: {
         setR: 100,
         setG: 0,
         setB: 0,
@@ -47,29 +47,28 @@ const STATE_TO_COMMAND_MAP = {
  * @param {object} options The options block from the action configuration.
  */
 export const run = async (currentValue, options) => {
-    const doLog = options.log === true;
-    if (doLog) log.debug(`${LOG_TAG} running with value: ${currentValue}`);
+    const logLevel = options.log;
+    log.debug(`${LOG_TAG} running with value: ${currentValue}`, logLevel);
 
     if (currentValue === undefined || currentValue === null) {
-        if (doLog) log.debug(`${LOG_TAG} No current value provided, exiting.`);
+        log.debug(`${LOG_TAG} No current value provided, exiting.`, logLevel);
         return;
     }
 
     const state = String(currentValue).toLowerCase();
 
     if (options._lastState === state) {
-        if (doLog) log.debug(`${LOG_TAG} State "${state}" unchanged. Skipping command.`);
+        log.debug(`${LOG_TAG} State "${state}" unchanged. Skipping command.`, logLevel);
         return;
     }
 
     const commandConfig = STATE_TO_COMMAND_MAP[state];
 
     if (commandConfig) {
-        if (doLog) {
-            log.debug(
-                `${LOG_TAG} State "${state}" matches. Queuing commands: ${JSON.stringify(commandConfig)} for ${options.targetDevice}/${options.targetSubDevice}`,
-            );
-        }
+        log.info(
+            `${LOG_TAG} State "${state}" matches. Queuing commands: ${JSON.stringify(commandConfig)} for ${options.targetDevice}/${options.targetSubDevice}`,
+            logLevel
+        );
 
         try {
             await addCommand(options.targetDevice, { [options.targetSubDevice]: commandConfig });

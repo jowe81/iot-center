@@ -8,13 +8,39 @@ import log from '../../utils/logger.js';
 const LOG_TAG = '[Plugin: WoodstoveState]';
 
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
-    const doLog = options.log === true;
-    if (doLog) log.debug(`${LOG_TAG} Plugin running for ${deviceId}`);
+    // Helper function for linear regression slope calculation
+    const calculateLinearRegressionSlope = (dataPoints, windowMinutes, endTime) => {
+        const windowStart = endTime - windowMinutes * 60 * 1000;
+        const relevantPoints = dataPoints.filter(p => p.time >= windowStart && p.time <= endTime);
+    
+        if (relevantPoints.length < 2) {
+            return 0;
+        }
+    
+        const n = relevantPoints.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        const t0 = relevantPoints[0].time; // Use the first point in the relevant window as reference
+    
+        for (const p of relevantPoints) {
+            const x = (p.time - t0) / 60000; // minutes
+            const y = p.val;
+            sumX += x;
+            sumY += y;
+            sumXY += x * y;
+            sumXX += x * x;
+        }
+        
+        const denominator = (n * sumXX - sumX * sumX);
+        return denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 0;
+    };
+
+    const logLevel = options.log;
+    log.debug(`${LOG_TAG} Plugin running for ${deviceId}`, logLevel);
 
     // inputs contains values for keys defined in config
     const inputKeys = Object.keys(inputs);
     if (inputKeys.length === 0) {
-        if (doLog) log.debug(`${LOG_TAG} No input keys, returning "off"`);
+        log.debug(`${LOG_TAG} No input keys, returning "off"`, logLevel);
         return "off";
     }
 
@@ -23,72 +49,81 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const currentTemp = inputs[tempKey];
 
     if (typeof currentTemp !== 'number') {
-        if (doLog) log.debug(`${LOG_TAG} currentTemp is not a number (${currentTemp}), returning "off"`);
+        log.debug(`${LOG_TAG} currentTemp is not a number (${currentTemp}), returning "off"`, logLevel);
         return "off";
     }
 
     let previousState = previousValue || 'off';
     previousState = previousState.toLowerCase();
-    if (doLog) log.debug(`${LOG_TAG} currentTemp=${currentTemp}, previousState=${previousState}`);
+    log.debug(`${LOG_TAG} currentTemp=${currentTemp}, previousState=${previousState}`, logLevel);
 
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
-    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 10;
-    
-    let AMBIENT_TEMP = options.ambientTemp || 25;
-    if (inputKeys.length > 1) {
-        const ambientKey = inputKeys[1];
-        const liveAmbient = inputs[ambientKey];
-        if (typeof liveAmbient === 'number') {
-            AMBIENT_TEMP = liveAmbient;
-            if (doLog) log.debug(`${LOG_TAG} Using live ambient temp: ${AMBIENT_TEMP}`);
-        }
-    }
+    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 5;
+    const AMBIENT_TEMP = options.ambientTemp || 25;
     
     // Thresholds (Slope in deg/min, Drops in %)
-    const RISE_THRESHOLD = options.riseThreshold || 0.02;
-    const DROP_THRESHOLD = options.dropThreshold || -0.3;
+    const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.02;
+    const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.05; // 5% drop from peak
-    const RELATIVE_DROP_COOLDOWN = options.relativeDropCooldown || 0.30; // 30% drop from peak
-    const REFUEL_RECOVERY_SLOPE = options.refuelRecoverySlope || -0.4
+    const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.02;
     const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 40;
-    const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 5; // Temp considered 'off'
+    const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 2; // Temp considered 'off'
 
+    const historyCutoff = Date.now() - (HISTORY_MINUTES * 60 * 1000);
     let points = options._points;
 
     // If history is not in memory, it's the first run or a restart. Fetch from DB.
     if (!points) {
-        if (doLog) log.debug(`${LOG_TAG} No history in memory, fetching from DB.`);
+        log.debug(`${LOG_TAG} No history in memory, fetching from DB. Cutoff: ${new Date(historyCutoff).toISOString()}}`, logLevel);
         const collection = db.collection(`device_${deviceId}`);
-        const historyStartTime = new Date(Date.now() - HISTORY_MINUTES * 60 * 1000);
+        const historyStartTime = new Date(historyCutoff);
         
+        // Fetch the most recent documents to build the initial history.
+        // We sort descending to get the latest ones first, then reverse the array
+        // to have them in correct chronological order for processing.
         const historyDocs = await collection.find(
             { 
-                receivedAt: { $gte: historyStartTime },
-                [`data.${tempKey}`]: { $exists: true }
+                [`data.${tempKey}`]: { $exists: true },
+                receivedAt: { $gte: historyStartTime }
             },
             {
-                sort: { receivedAt: 1 },
+                sort: { receivedAt: -1 },
+                // Limit to a reasonable number, e.g., ~15 minutes of data if records are every 5s.
+                limit: 500, 
                 projection: { receivedAt: 1, [`data.${tempKey}`]: 1, [`data.${outputKey}`]: 1 }
             }
         ).toArray();
+        historyDocs.reverse(); // Put back in ascending time order.
 
         points = historyDocs.map(doc => ({
             time: doc.receivedAt.getTime(),
             val: getValue(doc, `data.${tempKey}`),
             state: getValue(doc, `data.${outputKey}`)
         })).filter(p => typeof p.val === 'number');
+
+        log.debug(`${LOG_TAG} Fetched ${points.length} points from DB.`, logLevel);
+        
+        // Initialize slopes history from fetched points
+        if (points.length > 0) {
+            let initialSlopes = [];
+            // Iterate through the fetched points to calculate historical slopes
+            for (let i = 0; i < points.length; i++) {
+                const slopeForPoint = calculateLinearRegressionSlope(points, SLOPE_WINDOW_MINUTES, points[i].time);
+                initialSlopes.push({ time: points[i].time, val: slopeForPoint });
+            }
+            options._slopes = initialSlopes;
+        }
     }
 
     // Add current point
     points.push({ time: Date.now(), val: currentTemp });
 
     // Prune old points to keep the history window fixed
-    const historyCutoff = Date.now() - (HISTORY_MINUTES * 60 * 1000);
     const oldPointsLength = points.length;
     points = points.filter(p => p.time >= historyCutoff);
-    if (doLog && oldPointsLength > points.length) {
-        log.debug(`${LOG_TAG} Pruned ${oldPointsLength - points.length} old point(s) from history.`);
+    if (oldPointsLength > points.length) {
+        log.debug(`${LOG_TAG} Pruned ${oldPointsLength - points.length} old point(s) from history.`, logLevel);
     }
 
     // Persist for next run
@@ -96,15 +131,25 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Calculate Slope (Linear Regression over last SLOPE_WINDOW_MINUTES)
     const slopeWindowStart = Date.now() - SLOPE_WINDOW_MINUTES * 60 * 1000;
-    const slopePoints = points.filter(p => p.time >= slopeWindowStart);
+    const slope = calculateLinearRegressionSlope(points, SLOPE_WINDOW_MINUTES, Date.now());
+
+    // Calculate Slope Derivative (Rate of change of the slope)
+    // This helps detect if the cooling is slowing down (acceleration)
+    let slopes = options._slopes || [];
+    slopes.push({ time: Date.now(), val: slope });
     
-    let slope = 0;
-    if (slopePoints.length >= 2) {
-        const n = slopePoints.length;
+    // Keep slope history same window as slope calculation
+    const slopeHistoryCutoff = Date.now() - (SLOPE_WINDOW_MINUTES * 60 * 1000);
+    slopes = slopes.filter(p => p.time >= slopeHistoryCutoff);
+    options._slopes = slopes;
+
+    let slopeDerivative = 0;
+    if (slopes.length >= 2) {
+        const n = slopes.length;
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        const t0 = slopePoints[0].time;
+        const t0 = slopes[0].time;
         
-        for (const p of slopePoints) {
+        for (const p of slopes) {
             const x = (p.time - t0) / 60000; // minutes
             const y = p.val;
             sumX += x;
@@ -115,75 +160,140 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
         
         const denominator = (n * sumXX - sumX * sumX);
         if (denominator !== 0) {
-            slope = (n * sumXY - sumX * sumY) / denominator;
+            slopeDerivative = (n * sumXY - sumX * sumY) / denominator;
         }
     }
 
     // Calculate Max Temp in the history window (local peak)
     const maxTemp = Math.max(...points.map(p => p.val));
-    if (doLog) {
-        log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}`);
-        log.debug(`${LOG_TAG} Thresholds: RUNNING=${RUNNING_TEMP_THRESHOLD}, OFF=${OFF_TEMP_THRESHOLD}, RISE=${RISE_THRESHOLD}, DROP=${DROP_THRESHOLD}`);
-    }
+    log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, derivative=${slopeDerivative.toFixed(4)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}`, logLevel);
+
+    const tempIsRising = slope > RISE_SLOPE_THRESHOLD;
+    const tempIsFalling = slope < DROP_SLOPE_THRESHOLD;
+    const tempIsSteady = !(tempIsRising || tempIsFalling);
+
+    const tempIsSignificantlyAboveAmbient = currentTemp > OFF_TEMP_THRESHOLD;
+
+    const tempHasDroppedSignificantlyFromPeak = currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL);
+    const tempDropIsAccelerating = slopeDerivative < 0;
+
+    const tempIsAboveRunningThreshold = currentTemp > RUNNING_TEMP_THRESHOLD;
+    const tempDropIsSlowing = slope < 0 && slopeDerivative > REFUEL_RECOVERY_DERIVATIVE;
+
 
     let newState = previousState;
 
     switch (previousState) {
-        case 'off':
+        case "off": 
             // Only transition to 'warmup' is allowed.
             // Condition: Temp is rising and above ambient.
-            if (slope > RISE_THRESHOLD && currentTemp > AMBIENT_TEMP + 2) {
-                newState = 'warmup';
+            if (tempIsSignificantlyAboveAmbient && tempIsRising) {
+                newState = "warmup";
+                log.debug(`${LOG_TAG} Transition from off to warmup triggered. Reasons:`, logLevel);
+                if (tempIsSignificantlyAboveAmbient) {
+                    log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
+                }
+                if (tempIsRising) {
+                    log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                }
             }
             break;
 
-        case 'warmup':
+        case "warmup":
             // To 'running': Temp has passed the running threshold.
-            if (currentTemp > RUNNING_TEMP_THRESHOLD) {
-                newState = 'running';
+            if (tempIsAboveRunningThreshold && tempIsRising) {
+                newState = "running";
+                log.debug(`${LOG_TAG} Transition from warmup to running triggered. Reasons:`, logLevel);
+                if (tempIsAboveRunningThreshold) {
+                    log.debug(`  - Temp is above running threshold: ${currentTemp.toFixed(2)} > ${RUNNING_TEMP_THRESHOLD}`, logLevel);
+                }
+                if (tempIsRising) {
+                    log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                }
             }
             // To 'cooldown': Temp is dropping (fire went out).
-            else if (slope < DROP_THRESHOLD) {
-                newState = 'cooldown';
+            else if (!tempIsAboveRunningThreshold && tempIsFalling) {
+                newState = "cooldown";
             }
             break;
 
-        case 'running':
+        case "running":
             // Only transition to 'refuel' is allowed.
-            // Condition: Significant relative drop from the peak temp AND temp is not rising.
-            if (currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL) && slope <= DROP_THRESHOLD) {
-                newState = 'refuel';
+            // Condition: Significant relative drop from the peak temp AND temp is dropping  AND the drop is accelerating.
+            if (tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) {
+                newState = "refuel";
+                log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
+                if (tempHasDroppedSignificantlyFromPeak) { 
+                    log.debug(`  - Temp dropped from peak: ${currentTemp.toFixed(2)} < ${(maxTemp * (1 - RELATIVE_DROP_REFUEL)).toFixed(2)}`, logLevel);
+                }
+                if (tempIsFalling) {
+                    log.debug(`  - Temp falling at minimum rate: ${slope.toFixed(2)} <= ${DROP_SLOPE_THRESHOLD}`, logLevel);
+                }
+                if (tempDropIsAccelerating) {
+                    log.debug(`  - Temp drop is accelerating: ${slopeDerivative.toFixed(4)} < 0`, logLevel);
+                }
             }
             break;
 
-        case 'refuel':
-            // To 'running': Temp starts rising again OR has flattened while still hot.
-            if ((slope > RISE_THRESHOLD) || (currentTemp > RUNNING_TEMP_THRESHOLD && slope > REFUEL_RECOVERY_SLOPE)) {
-                newState = 'running';
+        case "refuel": 
+            // To 'running': Temp starts rising again OR has flattened while still hot OR cooldown is slowing down.
+            if (tempIsAboveRunningThreshold && (tempIsRising || tempDropIsSlowing)) {
+                newState = "running";
+                log.debug(`${LOG_TAG} Transition from refuel to running triggered. Reasons:`, logLevel);
+                if (tempIsAboveRunningThreshold) {
+                    log.debug(`  - Temp is above running threshold: ${currentTemp.toFixed(2)} > ${RUNNING_TEMP_THRESHOLD}`, logLevel);
+                }
+                if (tempIsRising) {
+                    log.debug(`  - Temp is rising: ${slope.toFixed(2)} >= ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                }
+                if (tempDropIsSlowing) {
+                    log.debug(`  - Temp drop is slowing: slope < 0 and derivative > ${REFUEL_RECOVERY_DERIVATIVE} (${slopeDerivative.toFixed(4)})`, logLevel);
+                }
             }
             // To 'cooldown': Temp continues to drop or falls below running temp.
-            else if (currentTemp < maxTemp * (1 - RELATIVE_DROP_COOLDOWN) || currentTemp < RUNNING_TEMP_THRESHOLD) {
-                newState = 'cooldown';
+            else if (!tempIsAboveRunningThreshold && tempIsFalling) {
+                newState = "cooldown";
+                log.debug(`${LOG_TAG} Transition from refuel to cooldown triggered. Reasons:`, logLevel);
+                if (!tempIsAboveRunningThreshold) {
+                    log.debug(`  - Temp is below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
+                }
+                if (tempIsFalling) {
+                    log.debug(`  - Temp is falling: slope < ${DROP_SLOPE_THRESHOLD}`, logLevel);
+                }
             }
             break;
 
-        case 'cooldown':
+        case "cooldown":
             // To 'off': Temp is back near ambient.
-            if (currentTemp < OFF_TEMP_THRESHOLD) {
-                newState = 'off';
+            if (!tempIsSignificantlyAboveAmbient && tempIsFalling) {
+                newState = "off";
+                log.debug(`${LOG_TAG} Transition from cooldown to off triggered. Reasons:`, logLevel);
+                if (!tempIsSignificantlyAboveAmbient) {
+                    log.debug(`  - Temp is near ambient: ${currentTemp.toFixed(2)} < ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
+                }
+                if (tempIsFalling) {
+                    log.debug(`  - Temp is falling: slope < ${DROP_SLOPE_THRESHOLD}`, logLevel);
+                }
             }
             // To 'warmup': It's heating up again.
-            else if (slope > RISE_THRESHOLD) {
-                newState = 'warmup';
+            else if (tempIsSignificantlyAboveAmbient && tempIsRising) {
+                newState = "warmup";
+                log.debug(`${LOG_TAG} Transition from off to warmup triggered. Reasons:`, logLevel);
+                if (tempIsSignificantlyAboveAmbient) {
+                    log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
+                }
+                if (tempIsRising) {
+                    log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                }
             }
             break;
 
         default:
-            newState = 'off';
+            newState = "off";
     }
 
-    if (doLog && newState !== previousState) {
-        log.debug(`${LOG_TAG} State change from ${previousState} to ${newState}`);
+    if (newState !== previousState) {
+        log.info(`${LOG_TAG} State change from ${previousState} to ${newState}`, logLevel);
     }
 
     return newState;

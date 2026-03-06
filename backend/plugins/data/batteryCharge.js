@@ -8,13 +8,13 @@ import log from '../../utils/logger.js';
 const LOG_TAG = '[Plugin: BatteryCharge]';
 
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
-    const doLog = options.log === true;
-    if (doLog) log.debug(`${LOG_TAG} plugin running for ${deviceId}`);
+    const logLevel = options.log;
+    log.debug(`${LOG_TAG} plugin running for ${deviceId}`, logLevel);
 
     // inputs contains values for keys defined in config, e.g. { "Sensor.INA219.chargeMeter.power_mW": 1234 }
     const inputKeys = Object.keys(inputs);
     if (inputKeys.length === 0) {
-        if (doLog) log.debug(`${LOG_TAG} No input keys, returning 0`);
+        log.debug(`${LOG_TAG} No input keys, returning 0`, logLevel);
         return 0;
     }
     
@@ -41,12 +41,12 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     }
 
     if (typeof currentPower_mW !== 'number') {
-        if (doLog) log.debug(`${LOG_TAG} currentPower_mW is not a number (${currentPower_mW}), returning 0`);
+        log.debug(`${LOG_TAG} currentPower_mW is not a number (${currentPower_mW}), returning 0`, logLevel);
         return 0;
     }
 
     if (!lastRecord) {
-        if (doLog) log.debug(`${LOG_TAG} No lastRecord, initializing at 0`);
+        log.debug(`${LOG_TAG} No lastRecord, initializing at 0`, logLevel);
         return 0; // Initialize at 0 if no history
     }
 
@@ -111,22 +111,20 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 const dischargeThreshold = options.dischargeThresholdWh || 0;
                 // Only reset if we have discharged below the threshold since the last reset
                 if (options._minNetChargeSinceReset <= -dischargeThreshold) {
-                    if (doLog) log.debug(`${LOG_TAG} Battery full detected and discharge threshold met (${options._minNetChargeSinceReset.toFixed(2)} <= -${dischargeThreshold}). Resetting netCharge to 0.`);
+                    log.debug(`${LOG_TAG} Battery full detected and discharge threshold met (${options._minNetChargeSinceReset.toFixed(2)} <= -${dischargeThreshold}). Resetting netCharge to 0.`, logLevel);
                     result = 0;
                     options._minNetChargeSinceReset = 0;
                 } else {
-                    if (doLog) log.debug(`${LOG_TAG} Battery full detected but discharge threshold NOT met (${options._minNetChargeSinceReset.toFixed(2)} > -${dischargeThreshold}). Not resetting.`);
+                    log.debug(`${LOG_TAG} Battery full detected but discharge threshold NOT met (${options._minNetChargeSinceReset.toFixed(2)} > -${dischargeThreshold}). Not resetting.`, logLevel);
                 }
             }
         }
     }
 
-    if (doLog) {
-        log.debug(`${LOG_TAG} currentPower_mW=${currentPower_mW}, previousPower_mW=${previousPower_mW}`);
-        log.debug(`${LOG_TAG} timeDiffHours=${timeDiffHours.toFixed(4)}, avgPower_mW=${avgPower_mW}`);
-        log.debug(`${LOG_TAG} energyDelta_mWh=${energyDelta_mWh.toFixed(4)}`);
-        log.debug(`${LOG_TAG} previousNetCharge=${previousNetCharge.toFixed(4)}, newNetCharge=${result.toFixed(4)}`);
-    }
+    log.debug(`${LOG_TAG} currentPower_mW=${currentPower_mW}, previousPower_mW=${previousPower_mW}`, logLevel);
+    log.debug(`${LOG_TAG} timeDiffHours=${timeDiffHours.toFixed(4)}, avgPower_mW=${avgPower_mW}`, logLevel);
+    log.debug(`${LOG_TAG} energyDelta_mWh=${energyDelta_mWh.toFixed(4)}`, logLevel);
+    log.debug(`${LOG_TAG} previousNetCharge=${previousNetCharge.toFixed(4)}, newNetCharge=${result.toFixed(4)}`, logLevel);
 
     return result;
 };

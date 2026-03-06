@@ -24,7 +24,7 @@
             "plugin": "woodstoveStateLed",
             "interval": 30000,
             "options": {
-                "log": true,
+                "log": "info",
                 "sourceDevice": "recroom_01",
                 "sourceKey": "data.Sensor.DS18B20.woodstove.woodstoveState",
                 "targetDevice": "recroom_01",
@@ -33,7 +33,7 @@
         },
         {
             "name": "Humidistat Office Johannes",
-            "enabled": true,
+            "enabled": false,
             "plugin": "humidistat",
             "interval": 60000,
             "options": {
@@ -46,8 +46,8 @@
                 "hysteresis": 4,
                 "tankDevice": "office_johannes_01",
                 "tankKey": "data.Sensor.Capacitive.humidifierTank",
-                "tankEmptyThreshold": 60,
-                "tankRefillThreshold": 50
+                "tankEmptyThreshold": 55,
+                "tankRefillThreshold": 45
             }
         }
     ],
@@ -239,8 +239,7 @@
                             "fullVoltageThreshold": 13.6,
                             "tailCurrentPowerThreshold": 500,
                             "fullDurationMinutes": 10,
-                            "dischargeThresholdWh": 6,
-                            "_minNetChargeSinceReset": 281.14949283200446
+                            "dischargeThresholdWh": 6
                         },
                         "outputScale": 0.001
                     }
@@ -338,7 +337,7 @@
                             "Sensor.SHT31.shtSensor.tempC"
                         ],
                         "options": {
-                            "log": true
+                            "log": "debug"
                         }
                     }
                 },

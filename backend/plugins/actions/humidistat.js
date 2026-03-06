@@ -11,11 +11,11 @@ const LOG_TAG = '[Action: Humidistat]';
  * @param {object} options The options block from the action configuration.
  */
 export const run = async (currentValue, options) => {
-    const logLevel = options.log || 'info'; // Default to 'info'
-    if (logLevel === 'debug') log.debug(`${LOG_TAG} running for device ${options.targetDevice} with value: ${currentValue}`);
+    const logLevel = options.log;
+    log.debug(`${LOG_TAG} running for device ${options.targetDevice} with value: ${currentValue}`, logLevel);
 
     if (currentValue === undefined || currentValue === null || typeof currentValue !== 'number') {
-        if (logLevel === 'debug') log.debug(`${LOG_TAG} Invalid current value provided (${currentValue}), exiting.`);
+        log.debug(`${LOG_TAG} Invalid current value provided (${currentValue}), exiting.`, logLevel);
         return;
     }
 
@@ -48,15 +48,13 @@ export const run = async (currentValue, options) => {
     }
 
     if (actualIsOn === null) {
-        if (logLevel === 'debug') log.debug(`${LOG_TAG} Could not determine actual device state. Exiting.`);
+        log.debug(`${LOG_TAG} Could not determine actual device state. Exiting.`, logLevel);
         return;
     }
 
-    if (logLevel === 'debug') {
-        log.debug(`${LOG_TAG} Current Humidity: ${currentValue}%, Setpoint: ${setPoint}%, Hysteresis: ${hysteresis}%`);
-        log.debug(`${LOG_TAG} Actual device state 'isOn': ${actualIsOn}`);
-        log.debug(`${LOG_TAG} Calculated thresholds: ON < ${setPoint - hysteresis}%, OFF > ${setPoint + hysteresis}%`);
-    }
+    log.debug(`${LOG_TAG} Current Humidity: ${currentValue}%, Setpoint: ${setPoint}%, Hysteresis: ${hysteresis}%`, logLevel);
+    log.debug(`${LOG_TAG} Actual device state 'isOn': ${actualIsOn}`, logLevel);
+    log.debug(`${LOG_TAG} Calculated thresholds: ON < ${setPoint - hysteresis}%, OFF > ${setPoint + hysteresis}%`, logLevel);
 
     // Check tank level override first
     if (options.tankDevice && options.tankKey && options.tankEmptyThreshold !== undefined) {
@@ -70,19 +68,17 @@ export const run = async (currentValue, options) => {
             const tankLevel = getValue(latestTankDoc, options.tankKey);
 
             if (typeof tankLevel === 'number') {
-                if (logLevel === 'debug') {
-                    log.debug(`${LOG_TAG} Tank check: level=${tankLevel}, empty_threshold=${tankEmptyThreshold}, refilled_threshold=${tankRefilledThreshold}, lockout=${options._tankEmptyLockout}`);
-                }
+                log.debug(`${LOG_TAG} Tank check: level=${tankLevel}, empty_threshold=${tankEmptyThreshold}, refilled_threshold=${tankRefilledThreshold}, lockout=${options._tankEmptyLockout}`, logLevel);
 
                 // If tank level is above the empty threshold, engage lockout and turn off.
                 if (tankLevel > tankEmptyThreshold) {
                     if (options._tankEmptyLockout !== true) {
-                        if (logLevel === 'info' || logLevel === 'debug') log.info(`${LOG_TAG} Tank empty detected (level=${tankLevel} > ${tankEmptyThreshold}). Engaging lockout.`);
+                        log.info(`${LOG_TAG} Tank empty detected (level=${tankLevel} > ${tankEmptyThreshold}). Engaging lockout.`, logLevel);
                         options._tankEmptyLockout = true;
                     }
 
                     if (actualIsOn === true) {
-                        if (logLevel === 'info' || logLevel === 'debug') log.info(`${LOG_TAG} OVERRIDE: Humidifier forced OFF. Reason: Tank empty.`);
+                        log.info(`${LOG_TAG} OVERRIDE: Humidifier forced OFF. Reason: Tank empty.`, logLevel);
                         await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
                     }
                     return; // Stop all other logic
@@ -91,12 +87,12 @@ export const run = async (currentValue, options) => {
                 // If in lockout, check if tank has been refilled enough to disengage.
                 if (options._tankEmptyLockout === true) {
                     if (tankLevel < tankRefilledThreshold) {
-                        if (logLevel === 'info' || logLevel === 'debug') log.info(`${LOG_TAG} Tank refilled (level=${tankLevel} < ${tankRefilledThreshold}). Disengaging lockout.`);
+                        log.info(`${LOG_TAG} Tank refilled (level=${tankLevel} < ${tankRefilledThreshold}). Disengaging lockout.`, logLevel);
                         options._tankEmptyLockout = false;
                         // Now we can proceed to humidity logic
                     } else {
                         // Still in lockout. Ensure device is off and stop.
-                        if (logLevel === 'debug') log.debug(`${LOG_TAG} Tank is still in empty lockout. Waiting for level to drop below ${tankRefilledThreshold}.`);
+                        log.debug(`${LOG_TAG} Tank is still in empty lockout. Waiting for level to drop below ${tankRefilledThreshold}.`, logLevel);
                         if (actualIsOn === true) {
                             // This might be redundant if the previous check already turned it off, but it's a good safeguard.
                             await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
@@ -116,20 +112,18 @@ export const run = async (currentValue, options) => {
     } else if (currentValue > (setPoint + hysteresis)) {
         desiredState = false;
     } else {
-        if (logLevel === 'debug') log.debug(`${LOG_TAG} Humidity is within deadband. No state change.`);
+        log.debug(`${LOG_TAG} Humidity is within deadband. No state change.`, logLevel);
         return;
     }
 
     if (desiredState !== actualIsOn) {
-        if (logLevel === 'info' || logLevel === 'debug') {
-            log.info(`${LOG_TAG} Humidity ${currentValue}% triggered state change. Switching ${desiredState ? 'ON' : 'OFF'}.`);
-        }
+        log.info(`${LOG_TAG} Humidity ${currentValue}% triggered state change. Switching ${desiredState ? 'ON' : 'OFF'}.`, logLevel);
         try {
             await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: desiredState } });
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue command`, e);
         }
     } else {
-        if (logLevel === 'debug') log.debug(`${LOG_TAG} Desired state (${desiredState}) matches actual state (${actualIsOn}). No command sent.`);
+        log.debug(`${LOG_TAG} Desired state (${desiredState}) matches actual state (${actualIsOn}). No command sent.`, logLevel);
     }
 };
