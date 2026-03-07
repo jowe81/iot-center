@@ -175,8 +175,19 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     const tempIsSignificantlyAboveAmbient = currentTemp > OFF_TEMP_THRESHOLD;
 
-    const tempHasDroppedSignificantlyFromPeak = currentTemp < maxTemp * (1 - RELATIVE_DROP_REFUEL);
-    const tempDropIsAccelerating = slopeDerivative < 0;
+    // If the peak is relatively close to the running threshold, it likely means the temperature has been falling
+    // very slowly for a long time (slow burn wet wood). In this case the required relative drop to switch back to
+    // refuel should be lowered. Also the threshold for the slope derivative (acceleration) should be more lenient.
+    // All this to make sure the state change doesn't come too late.
+    let effectiveRelativeDrop = RELATIVE_DROP_REFUEL;
+    let effectiveDerivativeThreshold = 0;
+    if (maxTemp < RUNNING_TEMP_THRESHOLD + 10) {
+        effectiveRelativeDrop = RELATIVE_DROP_REFUEL / 2;
+        effectiveDerivativeThreshold = 0.1;
+    }
+
+    const tempHasDroppedSignificantlyFromPeak = currentTemp < maxTemp * (1 - effectiveRelativeDrop);
+    const tempDropIsAccelerating = slopeDerivative < effectiveDerivativeThreshold;
 
     const tempIsAboveRunningThreshold = currentTemp > RUNNING_TEMP_THRESHOLD;
     const tempDropIsSlowing = slopeDerivative > REFUEL_RECOVERY_DERIVATIVE;
@@ -230,13 +241,13 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = "refuel";
                 log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
                 if (tempHasDroppedSignificantlyFromPeak) { 
-                    log.debug(`  - Temp dropped from peak: ${currentTemp.toFixed(2)} < ${(maxTemp * (1 - RELATIVE_DROP_REFUEL)).toFixed(2)}`, logLevel);
+                    log.debug(`  - Temp dropped from peak: ${currentTemp.toFixed(2)} < ${(maxTemp * (1 - effectiveRelativeDrop)).toFixed(2)}`, logLevel);
                 }
                 if (tempIsFalling) {
                     log.debug(`  - Temp falling at minimum rate: ${slope.toFixed(2)} <= ${DROP_SLOPE_THRESHOLD}`, logLevel);
                 }
                 if (tempDropIsAccelerating) {
-                    log.debug(`  - Temp drop is accelerating: ${slopeDerivative.toFixed(4)} < 0`, logLevel);
+                    log.debug(`  - Temp drop is accelerating: ${slopeDerivative.toFixed(4)} < ${effectiveDerivativeThreshold}`, logLevel);
                 }
                 if (!tempIsAboveRunningThreshold) {
                     log.debug(`  - Temp has fallen below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
