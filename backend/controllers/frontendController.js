@@ -356,7 +356,7 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
 
         const data = await collection.find(query, { projection })
             .sort({ receivedAt: -1 })
-            .limit(10000) // Increased limit to allow for larger timeframes
+            .limit(500000) // Increased limit to allow for larger timeframes
             .toArray();
 
         if (startTime) {
@@ -394,13 +394,27 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             }
         }
 
+        // Downsample data if too large to prevent frontend performance issues
+        let processedData = data;
+        const targetPoints = 1000; // About the max display width of the graph in pixels.
+        if (data.length > targetPoints) {
+            processedData = [];
+            const step = data.length / targetPoints;
+            for (let i = 0; i < targetPoints; i++) {
+                const index = Math.floor(i * step);
+                if (index < data.length) {
+                    processedData.push(data[index]);
+                }
+            }
+        }
+
         const result = {};
         const mappings = {};
         const deviceConfig = iotConfig.devices?.[deviceId]?.data || {};
 
         fieldsToFetch.forEach(field => {
             // Extract raw values first to detect types
-            const rawPoints = data.map(doc => {
+            const rawPoints = processedData.map(doc => {
                 const value = field.split('.').reduce((obj, key) => (obj && obj[key] !== undefined) ? obj[key] : null, doc);
                 return { doc, value };
             });

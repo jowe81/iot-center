@@ -60,13 +60,14 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
     const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 5;
-    const AMBIENT_TEMP = options.ambientTemp || 25;
+    const AMBIENT_TEMP = options.ambientTemp || 22;
+    const REFUEL_LOCKOUT_MINUTES = options.refuelLockoutMinutes ?? 10;
     
     // Thresholds (Slope in deg/min, Drops in %)
     const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.02;
     const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
-    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.05; // 5% drop from peak
-    const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.02;
+    const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.10; // 10% drop from peak
+    const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.03;
     const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 35;
     const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 2; // Temp considered 'off'
 
@@ -178,7 +179,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const tempDropIsAccelerating = slopeDerivative < 0;
 
     const tempIsAboveRunningThreshold = currentTemp > RUNNING_TEMP_THRESHOLD;
-    const tempDropIsSlowing = slope < 0 && slopeDerivative > REFUEL_RECOVERY_DERIVATIVE;
+    const tempDropIsSlowing = slopeDerivative > REFUEL_RECOVERY_DERIVATIVE;
 
 
     let newState = previousState;
@@ -219,8 +220,13 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
         case "running":
             // Only transition to 'refuel' is allowed.
+            // Check for lockout
+            const lastRunningTime = options._lastRunningTransitionTime || 0;
+            const minutesSinceRunning = (Date.now() - lastRunningTime) / 60000;
+            const isLockedOut = minutesSinceRunning < REFUEL_LOCKOUT_MINUTES;
+
             // Condition: Significant relative drop from the peak temp AND temp is dropping  AND the drop is accelerating.
-            if (tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) {
+            if (!isLockedOut && ((tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || !tempIsAboveRunningThreshold)) {
                 newState = "refuel";
                 log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
                 if (tempHasDroppedSignificantlyFromPeak) { 
@@ -232,6 +238,11 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 if (tempDropIsAccelerating) {
                     log.debug(`  - Temp drop is accelerating: ${slopeDerivative.toFixed(4)} < 0`, logLevel);
                 }
+                if (!tempIsAboveRunningThreshold) {
+                    log.debug(`  - Temp has fallen below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
+                }
+            } else if (isLockedOut && ((tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || !tempIsAboveRunningThreshold)) {
+                log.debug(`${LOG_TAG} Transition to refuel suppressed by lockout (${minutesSinceRunning.toFixed(1)}m < ${REFUEL_LOCKOUT_MINUTES}m)`, logLevel);
             }
             break;
 
@@ -251,28 +262,28 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
             }
             // To 'cooldown': Temp continues to drop or falls below running temp.
-            else if (!tempIsAboveRunningThreshold && tempIsFalling) {
+            else if (currentTemp < RUNNING_TEMP_THRESHOLD - 2) {
                 newState = "cooldown";
                 log.debug(`${LOG_TAG} Transition from refuel to cooldown triggered. Reasons:`, logLevel);
                 if (!tempIsAboveRunningThreshold) {
-                    log.debug(`  - Temp is below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
-                }
-                if (tempIsFalling) {
-                    log.debug(`  - Temp is falling: slope < ${DROP_SLOPE_THRESHOLD}`, logLevel);
+                    log.debug(
+                        `  - Temp is more than 2 degrees below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD - 2}`,
+                        logLevel,
+                    );
                 }
             }
             break;
 
         case "cooldown":
             // To 'off': Temp is back near ambient.
-            if (!tempIsSignificantlyAboveAmbient && tempIsFalling) {
+            if (!tempIsSignificantlyAboveAmbient && !tempIsRising) {
                 newState = "off";
                 log.debug(`${LOG_TAG} Transition from cooldown to off triggered. Reasons:`, logLevel);
                 if (!tempIsSignificantlyAboveAmbient) {
                     log.debug(`  - Temp is near ambient: ${currentTemp.toFixed(2)} < ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
                 }
-                if (tempIsFalling) {
-                    log.debug(`  - Temp is falling: slope < ${DROP_SLOPE_THRESHOLD}`, logLevel);
+                if (!tempIsRising) {
+                    log.debug(`  - Temp is not rising: slope < ${RISE_SLOPE_THRESHOLD}`, logLevel);
                 }
             }
             // To 'warmup': It's heating up again.
@@ -290,6 +301,10 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
         default:
             newState = "off";
+    }
+
+    if (newState === "running" && previousState !== "running") {
+        options._lastRunningTransitionTime = Date.now();
     }
 
     if (newState !== previousState) {
