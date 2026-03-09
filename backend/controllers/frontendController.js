@@ -36,11 +36,15 @@ export const getDevices = async (req, res) => {
 export const getDeviceActions = async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const actions = (iotConfig.actions || []).filter(a => 
-            (a.options && a.options.sourceDevice === deviceId) || 
-            (a.options && a.options.targetDevice === deviceId) ||
-            (a.options && a.options.tankDevice === deviceId)
-        );
+        const actions = (iotConfig.actions || []).filter(a => {
+            const opts = a.options || {};
+            // If a target device is defined, the action belongs to the target (or auxiliary devices like tank).
+            // We exclude sourceDevice in this case to prevent actions from appearing on the sensor device's page.
+            if (opts.targetDevice) {
+                return opts.targetDevice === deviceId || opts.tankDevice === deviceId;
+            }
+            return opts.sourceDevice === deviceId;
+        });
         res.json(actions);
     } catch (error) {
         res.status(500).json({ error: error.message });

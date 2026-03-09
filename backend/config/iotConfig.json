@@ -32,6 +32,42 @@
             }
         },
         {
+            "name": "Barometer Colors Woodshed",
+            "enabled": true,
+            "plugin": "dynamicColors",
+            "interval": 60000,
+            "options": {
+                "log": "info",
+                "sourceDevice": "woodshed_01",
+                "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
+                "targetDevice": "woodshed_01",
+                "targetSubDevice": "rgbStrip",
+                "lowBoundary": 980,
+                "highBoundary": 1030,
+                "saturationFactor": 0.7,
+                "useGreen": false,
+                "minIntervalMinutes": 30
+            }
+        },
+        {
+            "name": "Barometer Colors Living Room",
+            "enabled": false,
+            "plugin": "dynamicColors",
+            "interval": 60000,
+            "options": {
+                "log": "info",
+                "sourceDevice": "woodshed_01",
+                "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
+                "targetDevice": "livingroom_01",
+                "targetSubDevice": "woodRackLights",
+                "lowBoundary": 980,
+                "highBoundary": 1030,
+                "saturationFactor": 0.7,
+                "useGreen": false,
+                "minIntervalMinutes": 30
+            }
+        },
+        {
             "name": "Humidistat Office Johannes",
             "enabled": false,
             "plugin": "humidistat",
@@ -201,7 +237,7 @@
                     "deviceId": "kitchen_01",
                     "subDevice": "counterLights",
                     "command": "setPercentage",
-                    "argument": 5
+                    "argument": 3
                 }
             ]
         }

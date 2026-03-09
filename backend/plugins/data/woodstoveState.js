@@ -59,12 +59,22 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Configuration
     const HISTORY_MINUTES = options.historyMinutes || 60;
-    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 5;
-    const AMBIENT_TEMP = options.ambientTemp || 22;
+    const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 10;
+    let AMBIENT_TEMP = options.ambientTemp || 22;
+
+    if (inputKeys.length > 1) {
+        const ambientKey = inputKeys[1];
+        const liveAmbient = inputs[ambientKey];
+        if (typeof liveAmbient === 'number') {
+            AMBIENT_TEMP = liveAmbient;
+            log.debug(`${LOG_TAG} Using live ambient temp: ${AMBIENT_TEMP}`, logLevel);
+        }
+    }
+
     const REFUEL_LOCKOUT_MINUTES = options.refuelLockoutMinutes ?? 10;
     
     // Thresholds (Slope in deg/min, Drops in %)
-    const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.02;
+    const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.15;
     const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.10; // 10% drop from peak
     const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.03;
@@ -224,7 +234,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
             }
             // To 'cooldown': Temp is dropping (fire went out).
-            else if (!tempIsAboveRunningThreshold && tempIsFalling) {
+            else if (!tempIsAboveRunningThreshold && !tempIsRising) {
                 newState = "cooldown";
             }
             break;
@@ -300,7 +310,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             // To 'warmup': It's heating up again.
             else if (tempIsSignificantlyAboveAmbient && tempIsRising) {
                 newState = "warmup";
-                log.debug(`${LOG_TAG} Transition from off to warmup triggered. Reasons:`, logLevel);
+                log.debug(`${LOG_TAG} Transition from cooldown to warmup triggered. Reasons:`, logLevel);
                 if (tempIsSignificantlyAboveAmbient) {
                     log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
                 }
