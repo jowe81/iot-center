@@ -398,30 +398,49 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             }
         }
 
-        // Downsample data if too large to prevent frontend performance issues
-        let processedData = data;
+        const result = {};
+        const mappings = {};
+        const deviceConfig = iotConfig.devices?.[deviceId]?.data || {};
         const targetPoints = 1000; // About the max display width of the graph in pixels.
-        if (data.length > targetPoints) {
-            processedData = [];
-            const step = data.length / targetPoints;
-            for (let i = 0; i < targetPoints; i++) {
-                const index = Math.floor(i * step);
-                if (index < data.length) {
-                    processedData.push(data[index]);
+
+        // Pre-calculate paths for efficiency
+        const fieldPaths = fieldsToFetch.map(f => ({ field: f, path: f.split('.') }));
+        const fieldBuffers = {};
+        fieldsToFetch.forEach(f => fieldBuffers[f] = []);
+
+        // Single pass extraction to avoid iterating large dataset multiple times
+        for (const doc of data) {
+            for (const { field, path } of fieldPaths) {
+                let value = doc;
+                for (const key of path) {
+                    if (value && value[key] !== undefined) {
+                        value = value[key];
+                    } else {
+                        value = null;
+                        break;
+                    }
+                }
+                if (value !== undefined && value !== null) {
+                    fieldBuffers[field].push({ x: doc.receivedAt, y: value });
                 }
             }
         }
 
-        const result = {};
-        const mappings = {};
-        const deviceConfig = iotConfig.devices?.[deviceId]?.data || {};
-
         fieldsToFetch.forEach(field => {
-            // Extract raw values first to detect types
-            const rawPoints = processedData.map(doc => {
-                const value = field.split('.').reduce((obj, key) => (obj && obj[key] !== undefined) ? obj[key] : null, doc);
-                return { doc, value };
-            });
+            let points = fieldBuffers[field];
+
+            // Downsample per field if too large
+            if (points.length > targetPoints) {
+                const downsampled = [];
+                const step = points.length / targetPoints;
+                for (let i = 0; i < targetPoints; i++) {
+                    const index = Math.floor(i * step);
+                    if (index < points.length) {
+                        downsampled.push(points[index]);
+                    }
+                }
+                points = downsampled;
+            }
 
             // Resolve config for this field to check for valueMap
             let customMap = null;
@@ -447,7 +466,7 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             }
 
             // Handle string values by mapping them to integers
-            const stringValues = rawPoints.filter(p => typeof p.value === 'string').map(p => p.value);
+            const stringValues = points.filter(p => typeof p.y === 'string').map(p => p.y);
             let stringMap = null;
             if (stringValues.length > 0) {
                 if (customMap) {
@@ -461,8 +480,8 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             }
 
             // Format for Chart.js (x: time, y: value)
-            result[field] = rawPoints.map(p => {
-                let value = p.value;
+            result[field] = points.map(p => {
+                let value = p.y;
                 
                 if (stringMap && typeof value === 'string') {
                     value = stringMap[value] !== undefined ? stringMap[value] : null;
@@ -475,7 +494,7 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
                         value = Math.round(value / step) * step;
                     }
                 }
-                return { x: p.doc.receivedAt, y: value };
+                return { x: p.x, y: value };
             }).filter(point => point.y !== null).reverse(); // Reverse to chronological order
         });
 
