@@ -22,7 +22,9 @@
             "name": "Woodstove Status LED",
             "enabled": true,
             "plugin": "woodstoveStateLed",
-            "interval": 30000,
+            "trigger": {
+                "type": "data"
+            },
             "options": {
                 "log": "info",
                 "sourceDevice": "recroom_01",
@@ -35,16 +37,18 @@
             "name": "Barometer Colors Woodshed",
             "enabled": true,
             "plugin": "dynamicColors",
-            "interval": 60000,
+            "trigger": {
+                "type": "data"
+            },
             "options": {
                 "log": "info",
                 "sourceDevice": "woodshed_01",
                 "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
                 "targetDevice": "woodshed_01",
                 "targetSubDevice": "rgbStrip",
-                "lowBoundary": 980,
+                "lowBoundary": 990,
                 "highBoundary": 1030,
-                "saturationFactor": 0.7,
+                "saturationFactor": 1,
                 "useGreen": false,
                 "minIntervalMinutes": 30
             }
@@ -53,14 +57,16 @@
             "name": "Barometer Colors Living Room",
             "enabled": false,
             "plugin": "dynamicColors",
-            "interval": 60000,
+            "trigger": {
+                "type": "data"
+            },
             "options": {
                 "log": "info",
                 "sourceDevice": "woodshed_01",
                 "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
                 "targetDevice": "livingroom_01",
                 "targetSubDevice": "woodRackLights",
-                "lowBoundary": 980,
+                "lowBoundary": 990,
                 "highBoundary": 1030,
                 "saturationFactor": 0.7,
                 "useGreen": false,
@@ -69,17 +75,19 @@
         },
         {
             "name": "Humidistat Office Johannes",
-            "enabled": false,
+            "enabled": true,
             "plugin": "humidistat",
-            "interval": 60000,
+            "trigger": {
+                "type": "data"
+            },
             "options": {
                 "log": "debug",
                 "sourceDevice": "office_johannes_01",
                 "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
                 "targetDevice": "office_johannes_01",
                 "targetSubDevice": "humidifier",
-                "setPoint": 35,
-                "hysteresis": 4,
+                "setPoint": 34,
+                "hysteresis": 3,
                 "tankDevice": "office_johannes_01",
                 "tankKey": "data.Sensor.Capacitive.humidifierTank",
                 "tankEmptyThreshold": 55,

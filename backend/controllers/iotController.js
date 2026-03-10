@@ -3,6 +3,7 @@ import { getDb } from "../config/db.js";
 import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
 import { broadcast, sendToClient } from './websocketService.js';
+import { runDataDrivenActions } from './actionService.js';
 import { fetchDeviceStats, getSingleDeviceStatusData } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
@@ -243,6 +244,9 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         // Run Plugins
         await executePlugins(pluginsToRun, filteredData, deviceId);
+
+        // Trigger any data-driven actions
+        await runDataDrivenActions(deviceId, filteredData);
 
         // Save and Broadcast
         await saveAndBroadcast(deviceId, filteredData, data, protocol);

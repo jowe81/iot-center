@@ -28,29 +28,59 @@ const getPlugin = async (name) => {
     }
 };
 
-const runAction = async (actionConfig) => {
-    log.debug(`${LOG_TAG} Running action: ${actionConfig.name}`);
+const executeAction = async (actionConfig, currentValue) => {
+    log.debug(`${LOG_TAG} Executing action: ${actionConfig.name} with value ${currentValue}`);
     try {
         const plugin = await getPlugin(actionConfig.plugin);
         if (!plugin || !plugin.run) {
             log.error(`${LOG_TAG} Plugin ${actionConfig.plugin} not found or has no run method.`);
             return;
         }
+        await plugin.run(currentValue, actionConfig.options);
+    } catch (e) {
+        log.error(`${LOG_TAG} Error executing action "${actionConfig.name}"`, e);
+    }
+};
 
+const runActionWithLatestData = async (actionConfig) => {
+    log.debug(`${LOG_TAG} Running action with latest data: ${actionConfig.name}`);
+    try {
         const db = getDb();
         const collection = db.collection(`device_${actionConfig.options.sourceDevice}`);
         const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
 
         if (!latestDoc) {
-            log.debug(`${LOG_TAG} No data found for source device ${actionConfig.options.sourceDevice} for action "${actionConfig.name}"`);
+            log.debug(`${LOG_TAG} No data for source device ${actionConfig.options.sourceDevice} for action "${actionConfig.name}"`);
             return;
         }
 
         const currentValue = getValue(latestDoc, actionConfig.options.sourceKey);
-        await plugin.run(currentValue, actionConfig.options);
-
+        if (currentValue !== undefined) {
+            await executeAction(actionConfig, currentValue);
+        }
     } catch (e) {
-        log.error(`${LOG_TAG} Error running action "${actionConfig.name}"`, e);
+        log.error(`${LOG_TAG} Error running action "${actionConfig.name}" with latest data`, e);
+    }
+};
+
+export const runDataDrivenActions = async (deviceId, dataDoc) => {
+    // Backward compatibility: if trigger is missing, it can't be data-driven.
+    const actions = (iotConfig.actions || []).filter(a =>
+        a.enabled &&
+        a.trigger?.type === 'data' &&
+        a.options?.sourceDevice === deviceId
+    );
+
+    if (actions.length === 0) {
+        return;
+    }
+
+    log.debug(`${LOG_TAG} Checking for data-driven actions for device ${deviceId}`);
+    for (const action of actions) {
+        const currentValue = getValue(dataDoc, action.options.sourceKey);
+        if (currentValue !== undefined) {
+            await executeAction(action, currentValue);
+        }
     }
 };
 
@@ -66,10 +96,19 @@ export const initActionService = () => {
         log.info(`${LOG_TAG} Initializing...`);
         actions.forEach(action => {
             if (action.enabled) {
-                const interval = action.interval || 60000;
-                log.info(`${LOG_TAG} Scheduling action "${action.name}" to run every ${interval}ms`);
-                const id = setInterval(() => runAction(action), interval);
-                runningActions.push({ action, intervalId: id });
+                // Default to 'interval' for backward compatibility if trigger object is missing
+                const triggerType = action.trigger?.type || 'interval';
+
+                if (triggerType === 'interval') {
+                    const interval = action.interval || action.trigger?.interval || 60000;
+                    log.info(`${LOG_TAG} Scheduling action "${action.name}" to run every ${interval}ms`);
+                    const id = setInterval(() => runActionWithLatestData(action), interval);
+                    runningActions.push({ action, intervalId: id });
+                } else if (triggerType === 'data') {
+                    log.info(`${LOG_TAG} Initializing data-driven action "${action.name}", running once with latest data.`);
+                    // Run once on startup to set initial state based on last known value.
+                    runActionWithLatestData(action);
+                }
             }
         });
     }
