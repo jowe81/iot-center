@@ -5,6 +5,33 @@ import { getValue } from '../../utils/dataUtils.js';
 
 const LOG_TAG = '[Action: Humidistat]';
 
+const getActualIsOn = async (options) => {
+    try {
+        const db = getDb();
+        const collection = db.collection(`device_${options.targetDevice}`);
+        const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+
+        if (latestDoc && latestDoc.data) {
+            for (const type of Object.values(latestDoc.data)) {
+                for (const subtype of Object.values(type)) {
+                    const subDeviceData = subtype[options.targetSubDevice];
+                    if (subDeviceData) {
+                        if (typeof subDeviceData.isOn === 'boolean') {
+                            return subDeviceData.isOn;
+                        }
+                        // Found the subdevice, but no 'isOn' boolean. Stop searching.
+                        return null;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        log.error(`${LOG_TAG} Error checking device state`, e);
+        throw e;
+    }
+    return null;
+};
+
 /**
  * Reads a humidity value and issues a command to a humidifier based on setpoint.
  * @param {*} currentValue The value read from the sourceKey.
@@ -23,27 +50,11 @@ export const run = async (currentValue, options) => {
     const hysteresis = options.hysteresis || 2;
 
     // Check actual device state
-    let actualIsOn = null;
+    let actualIsOn;
     try {
-        const db = getDb();
-        const collection = db.collection(`device_${options.targetDevice}`);
-        const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
-
-        if (latestDoc && latestDoc.data) {
-            outer:
-            for (const type of Object.values(latestDoc.data)) {
-                for (const subtype of Object.values(type)) {
-                    if (subtype[options.targetSubDevice]) {
-                        if (typeof subtype[options.targetSubDevice].isOn === 'boolean') {
-                            actualIsOn = subtype[options.targetSubDevice].isOn;
-                        }
-                        break outer;
-                    }
-                }
-            }
-        }
+        actualIsOn = await getActualIsOn(options);
     } catch (e) {
-        log.error(`${LOG_TAG} Error checking device state`, e);
+        log.error(`${LOG_TAG} Could not check device state, aborting run.`, logLevel);
         return; // Can't proceed without knowing the actual state
     }
 
@@ -125,5 +136,27 @@ export const run = async (currentValue, options) => {
         }
     } else {
         log.debug(`${LOG_TAG} Desired state (${desiredState}) matches actual state (${actualIsOn}). No command sent.`, logLevel);
+    }
+};
+
+/**
+ * Runs when the action is disabled to perform cleanup.
+ * @param {object} options The options block from the action configuration.
+ */
+export const stop = async (options) => {
+    const logLevel = options.log;
+    log.info(`${LOG_TAG} Stop called for ${options.targetDevice}. Checking if it needs to be turned off.`, logLevel);
+
+    try {
+        const actualIsOn = await getActualIsOn(options);
+
+        if (actualIsOn === true) {
+            log.info(`${LOG_TAG} Device is currently ON. Queuing OFF command for cleanup.`, logLevel);
+            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
+        } else {
+            log.debug(`${LOG_TAG} Device is not ON or state is unknown. No cleanup command needed.`, logLevel);
+        }
+    } catch (e) {
+        log.error(`${LOG_TAG} Error during stop procedure for ${options.targetDevice}.`, e);
     }
 };

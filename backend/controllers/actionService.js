@@ -8,7 +8,7 @@ const iotConfig = require('../config/iotConfig.json');
 const LOG_TAG = '[ActionService]';
 
 const loadedPlugins = {};
-let runningIntervals = [];
+let runningActions = [];
 
 const getPlugin = async (name) => {
     if (loadedPlugins[name]) {
@@ -55,9 +55,11 @@ const runAction = async (actionConfig) => {
 };
 
 export const initActionService = () => {
+    const previouslyRunningActions = [...runningActions];
+
     // Clear existing intervals
-    runningIntervals.forEach(clearInterval);
-    runningIntervals = [];
+    previouslyRunningActions.forEach(({ intervalId }) => clearInterval(intervalId));
+    runningActions = [];
 
     const actions = iotConfig.actions || [];
     if (actions.length > 0) {
@@ -67,10 +69,28 @@ export const initActionService = () => {
                 const interval = action.interval || 60000;
                 log.info(`${LOG_TAG} Scheduling action "${action.name}" to run every ${interval}ms`);
                 const id = setInterval(() => runAction(action), interval);
-                runningIntervals.push(id);
+                runningActions.push({ action, intervalId: id });
             }
         });
     }
+
+    // Find disabled actions and run their stop method
+    previouslyRunningActions.forEach(async ({ action: prevAction }) => {
+        const currentAction = (iotConfig.actions || []).find(a => a.name === prevAction.name);
+        if (!currentAction || currentAction.enabled === false) {
+            log.info(`${LOG_TAG} Action "${prevAction.name}" has been disabled. Calling stop method.`);
+            try {
+                const plugin = await getPlugin(prevAction.plugin);
+                if (plugin && plugin.stop) {
+                    await plugin.stop(prevAction.options);
+                } else {
+                    log.debug(`${LOG_TAG} Plugin ${prevAction.plugin} for action "${prevAction.name}" has no stop method.`);
+                }
+            } catch (e) {
+                log.error(`${LOG_TAG} Error running stop method for action "${prevAction.name}"`, e);
+            }
+        }
+    });
 };
 
 export const reloadActions = () => {
