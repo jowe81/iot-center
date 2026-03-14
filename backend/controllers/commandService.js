@@ -1,6 +1,10 @@
+import log from '../utils/logger.js';
 import { getDb } from '../config/db.js';
 import { ObjectId } from 'mongodb';
 import { broadcast } from './websocketService.js';
+import { sendMqttCommand } from './mqttService.js';
+
+const LOG_TAG = '[CommandService]';
 
 export const addCommand = async (deviceId, commandObj) => {
     const db = getDb();
@@ -11,6 +15,21 @@ export const addCommand = async (deviceId, commandObj) => {
         createdAt: new Date()
     });
     broadcast('COMMAND_UPDATED', { deviceId, commandId: result.insertedId, status: 'pending', command: commandObj });
+
+    // Attempt to send immediately if the device is connected via MQTT
+    try {
+        const deviceCollection = db.collection(`device_${deviceId}`);
+        const lastDoc = await deviceCollection.findOne({}, { sort: { receivedAt: -1 }, projection: { protocol: 1 } });
+
+        if (lastDoc && lastDoc.protocol === 'mqtt') {
+            if (sendMqttCommand(deviceId, commandObj, result.insertedId)) {
+                await markCommandAsSent(result.insertedId);
+            }
+        }
+    } catch (e) {
+        log.error(`${LOG_TAG} Failed to attempt immediate delivery for ${deviceId}`, e);
+    }
+
     return result.insertedId;
 };
 

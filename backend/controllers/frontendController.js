@@ -4,8 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../config/db.js';
 import log from '../utils/logger.js';
-import { sendMqttCommand } from './mqttService.js';
-import { addCommand, markCommandAsSent } from './commandService.js';
+import { addCommand } from './commandService.js';
 import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
 import { getRawData } from '../utils/rawDataStore.js';
 import { reloadActions } from './actionService.js';
@@ -229,8 +228,6 @@ export const queueCommand = async (req, res) => {
         if (!deviceId || !subDevice || !command) {
             return res.status(400).json({ error: "Missing required fields" });
         }
-
-        const db = getDb();
         
         let commandObj = {
             [subDevice]: {}
@@ -244,17 +241,7 @@ export const queueCommand = async (req, res) => {
             commandObj[subDevice][command] = argument;
         }
 
-        const insertedId = await addCommand(deviceId, commandObj);
-
-        // Check if we should send immediately via MQTT
-        const deviceCollection = db.collection(`device_${deviceId}`);
-        const lastDoc = await deviceCollection.findOne({}, { sort: { receivedAt: -1 }, projection: { protocol: 1 } });
-
-        if (lastDoc && lastDoc.protocol === 'mqtt') {
-            if (sendMqttCommand(deviceId, commandObj, insertedId)) {
-                await markCommandAsSent(insertedId);
-            }
-        }
+        await addCommand(deviceId, commandObj);
 
         res.json({ status: "Queued" });
     } catch (error) {
