@@ -15,6 +15,7 @@
     "mongodb": "^7.0.0",
     "mqtt": "^5.3.5",
     "suncalc": "^1.9.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "tplink-smarthome-api": "^4.2"
   }
 }

@@ -15,6 +15,15 @@
             "brokerPort": 1883,
             "username": null,
             "password": null
+        },
+        "kasa": {
+            "enabled": false,
+            "discoveryOptions": {
+                "offlineTolerance": 5,
+                "broadcast": "192.168.1.255"
+            },
+            "pollingIntervalSeconds": 10,
+            "log": false
         }
     },
     "actions": [
@@ -86,11 +95,11 @@
                 "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
                 "targetDevice": "office_johannes_01",
                 "targetSubDevice": "humidifier",
-                "setPoint": 34,
+                "setPoint": 35,
                 "hysteresis": 3,
                 "tankDevice": "office_johannes_01",
                 "tankKey": "data.Sensor.Capacitive.humidifierTank",
-                "tankEmptyThreshold": 55,
+                "tankEmptyThreshold": 50,
                 "tankRefillThreshold": 45
             }
         }

@@ -88,7 +88,9 @@ export const initActionService = () => {
     const previouslyRunningActions = [...runningActions];
 
     // Clear existing intervals
-    previouslyRunningActions.forEach(({ intervalId }) => clearInterval(intervalId));
+    previouslyRunningActions.forEach(({ intervalId }) => {
+        if (intervalId) clearInterval(intervalId);
+    });
     runningActions = [];
 
     const actions = iotConfig.actions || [];
@@ -108,6 +110,7 @@ export const initActionService = () => {
                     log.info(`${LOG_TAG} Initializing data-driven action "${action.name}", running once with latest data.`);
                     // Run once on startup to set initial state based on last known value.
                     runActionWithLatestData(action);
+                    runningActions.push({ action, intervalId: null });
                 }
             }
         });

@@ -11,6 +11,7 @@ import { initMqttService } from './controllers/mqttService.js';
 import { initWebSocket } from './controllers/websocketService.js';
 import { initSchedulerService } from './controllers/schedulerService.js';
 import { initActionService } from './controllers/actionService.js';
+import { initKasaService } from './controllers/kasaService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,7 @@ connectDB().then(() => {
   initMqttService();
   initSchedulerService();
   initActionService();
+  initKasaService();
 });
 
 app.use(express.json());
