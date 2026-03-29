@@ -1,9 +1,7 @@
 import { createRequire } from 'module';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { getDb } from '../config/db.js';
 import log from '../utils/logger.js';
+import { saveConfig } from '../utils/configUtils.js';
 import { addCommand } from './commandService.js';
 import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
 import { getRawData } from '../utils/rawDataStore.js';
@@ -73,20 +71,6 @@ export const updateAction = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-};
-
-// Save the configuration but ignore any keys that start with an underscore (plugins may add those for internal caching)
-const saveConfig = async () => {
-    try {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
-        const configPath = path.join(__dirname, '../config/iotConfig.json');        
-        const replacer = (key, value) => key.startsWith('_') ? undefined : value;
-        await fs.writeFile(configPath, JSON.stringify(iotConfig, replacer, 4));
-    } catch (error) {
-        log.error('Failed to save config:', error);
-    }
-    log.info('Saved the configuration.');
 };
 
 export const getDashboards = async (req, res) => {
@@ -510,7 +494,7 @@ const _getAllDeviceStatusesData = async () => {
             const deviceId = c.name.replace('device_', '');
             const collection = db.collection(c.name);
             const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1, 'data.System.DataExchanger': 1 } });
-            
+
             const config = iotConfig.devices?.[deviceId];
             const name = config?.meta?.name || deviceId;
 

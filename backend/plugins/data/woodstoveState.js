@@ -77,7 +77,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.15;
     const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.10; // 10% drop from peak
-    const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.03;
+    const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.07;
     const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 35;
     const OFF_TEMP_THRESHOLD = AMBIENT_TEMP + 2; // Temp considered 'off'
 
@@ -283,7 +283,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
             }
             // To 'cooldown': Temp continues to drop or falls below running temp.
-            else if (currentTemp < RUNNING_TEMP_THRESHOLD - 2) {
+            else if (currentTemp < RUNNING_TEMP_THRESHOLD - 7) {
                 newState = "cooldown";
                 log.debug(`${LOG_TAG} Transition from refuel to cooldown triggered. Reasons:`, logLevel);
                 if (!tempIsAboveRunningThreshold) {

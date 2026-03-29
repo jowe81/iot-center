@@ -183,43 +183,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 typeHeaderCell.textContent = formatKey(type);
                 typeHeaderRow.appendChild(typeHeaderCell);
                 latestDataBody.appendChild(typeHeaderRow);
+                
+                const subtypes = Object.keys(typeData).sort();
+                subtypes.forEach(subtype => {
+                    const subtypeData = typeData[subtype];
+                    
+                    // Render Subtype Header
+                    const subtypeHeaderRow = document.createElement('tr');
+                    const subtypeHeaderCell = document.createElement('td');
+                    subtypeHeaderCell.className = 'subheader-cell';
+                    subtypeHeaderCell.colSpan = 3;
+                    subtypeHeaderCell.textContent = formatKey(subtype);
+                    subtypeHeaderRow.appendChild(subtypeHeaderCell);
+                    latestDataBody.appendChild(subtypeHeaderRow);
 
-                // Check nesting
-                let isNested = false;
-                if (deviceConfig) {
-                    const firstKey = Object.keys(typeData)[0];
-                    if (firstKey && deviceConfig[`${type}.${firstKey}`]) {
-                        isNested = true;
-                    }
-                }
-
-                if (isNested) {
-                    const subtypes = Object.keys(typeData).sort();
-                    subtypes.forEach(subtype => {
-                        const subtypeData = typeData[subtype];
-                        
-                        // Render Subtype Header
-                        const subtypeHeaderRow = document.createElement('tr');
-                        const subtypeHeaderCell = document.createElement('td');
-                        subtypeHeaderCell.className = 'subheader-cell';
-                        subtypeHeaderCell.colSpan = 3;
-                        subtypeHeaderCell.textContent = formatKey(subtype);
-                        subtypeHeaderRow.appendChild(subtypeHeaderCell);
-                        latestDataBody.appendChild(subtypeHeaderRow);
-
-                        const names = Object.keys(subtypeData).sort();
-                        names.forEach(name => {
-                            const metrics = subtypeData[name];
-                            renderMetrics(metrics, type, subtype, name);
-                        });
-                    });
-                } else {
-                    const names = Object.keys(typeData).sort();
+                    const names = Object.keys(subtypeData).sort();
                     names.forEach(name => {
-                        const metrics = typeData[name];
-                        renderMetrics(metrics, type, null, name);
+                        const metrics = subtypeData[name];
+                        renderMetrics(metrics, type, subtype, name);
                     });
-                }
+                });
             });
 
             function renderMetrics(metrics, type, subtype, name) {
@@ -251,20 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!defs && configKey.includes('.')) {
                     const parts = configKey.split('.');
                     defs = commandDefinitions[parts[0]];
-                }
-
-                if (specificConfig) {
-                    const configFields = Array.isArray(specificConfig) ? specificConfig : Object.keys(specificConfig);
-                    metricKeys.sort((a, b) => {
-                        const idxA = configFields.indexOf(a);
-                        const idxB = configFields.indexOf(b);
-                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                        if (idxA !== -1) return -1;
-                        if (idxB !== -1) return 1;
-                        return a.localeCompare(b);
-                    });
-                } else {
-                    metricKeys.sort();
                 }
 
                 metricKeys.forEach(metricKey => {

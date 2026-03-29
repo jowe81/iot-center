@@ -17,13 +17,17 @@
             "password": null
         },
         "kasa": {
-            "enabled": false,
+            "enabled": true,
             "discoveryOptions": {
                 "offlineTolerance": 5,
                 "broadcast": "192.168.1.255"
             },
             "pollingIntervalSeconds": 10,
-            "log": false
+            "log": "debug",
+            "libraryLogger": false
+        },
+        "logicalDeviceManager": {
+            "log": "info"
         }
     },
     "actions": [
@@ -56,7 +60,7 @@
                 "targetDevice": "woodshed_01",
                 "targetSubDevice": "rgbStrip",
                 "lowBoundary": 990,
-                "highBoundary": 1030,
+                "highBoundary": 1020,
                 "saturationFactor": 1,
                 "useGreen": false,
                 "minIntervalMinutes": 30
@@ -98,7 +102,7 @@
                 "setPoint": 35,
                 "hysteresis": 3,
                 "tankDevice": "office_johannes_01",
-                "tankKey": "data.Sensor.Capacitive.humidifierTank",
+                "tankKey": "data.Sensor.Capacitive.humidifierTank.value",
                 "tankEmptyThreshold": 50,
                 "tankRefillThreshold": 45
             }
@@ -135,6 +139,7 @@
             "metrics": [
                 "livingroom_01.Sensor.SHT31.shtSensor.tempC",
                 "office_johannes_01.Sensor.SHT31.shtSensor.tempC",
+                "kitchen_01.Sensor.DS18B20.tempKitchen.tempC",
                 "recroom_01.Sensor.SHT31.shtSensor.tempC",
                 "recroom_01.Sensor.DS18B20.woodstove.tempC",
                 "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
@@ -145,7 +150,7 @@
     ],
     "schedules": [
         {
-            "name": "Ambient Glow After Sunset",
+            "name": "After Sunset",
             "enabled": true,
             "trigger": {
                 "type": "celestial",
@@ -158,11 +163,45 @@
                     "subDevice": "rgbStrip",
                     "command": "setState",
                     "argument": true
+                },
+                {
+                    "deviceId": "livingroom_01",
+                    "subDevice": "woodRackLights",
+                    "command": "setState",
+                    "argument": true
+                },
+                {
+                    "label": "Under Bar",
+                    "deviceKey": "kasa.80125D66D3B56B9365A992BA16C9D3E0201EEDC1",
+                    "command": {
+                        "on_off": 1
+                    }
+                },
+                {
+                    "label": "Ceil Strip",
+                    "deviceKey": "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804802",
+                    "command": {
+                        "on_off": 1
+                    }
+                },
+                {
+                    "label": "Above Bar",
+                    "deviceKey": "kasa.801224EDFE01CB1C1940AB267D059AFE201D2D46",
+                    "command": {
+                        "on_off": 1
+                    }
+                },
+                {
+                    "label": "Fireplace",
+                    "deviceKey": "kasa.80125D66D3B56B9365A992BA16C9D3E0201EEDC1",
+                    "command": {
+                        "on_off": 1
+                    }
                 }
             ]
         },
         {
-            "name": "Midnight Shutdown",
+            "name": "Latenite Shutdown",
             "enabled": true,
             "trigger": {
                 "type": "daily",
@@ -174,28 +213,81 @@
                     "subDevice": "rgbStrip",
                     "command": "setState",
                     "argument": false
-                }
-            ]
-        },
-        {
-            "name": "Woodrack Lights after Sunset",
-            "enabled": true,
-            "trigger": {
-                "type": "celestial",
-                "event": "sunset",
-                "offsetMinutes": 45
-            },
-            "targets": [
+                },
                 {
-                    "deviceId": "livingroom_01",
-                    "subDevice": "woodRackLights",
-                    "command": "setState",
-                    "argument": true
+                    "label": "Bar top",
+                    "deviceKey": "kasa.8006FDF98E41AFB5E2E33F27779742F7203AF7AC",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Bar Counter",
+                    "deviceKey": "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804801",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "J&Js Bar",
+                    "deviceKey": "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804800",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Budweiser",
+                    "deviceKey": "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804800",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Corona",
+                    "deviceKey": "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C01",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Plug 3",
+                    "deviceKey": "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C02",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Under Bar",
+                    "deviceKey": "kasa.80125D66D3B56B9365A992BA16C9D3E0201EEDC1",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Ceil Strip",
+                    "deviceKey": "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804802",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Above Bar",
+                    "deviceKey": "kasa.801224EDFE01CB1C1940AB267D059AFE201D2D46",
+                    "command": {
+                        "on_off": 0
+                    }
+                },
+                {
+                    "label": "Fireplace",
+                    "deviceKey": "kasa.80125D66D3B56B9365A992BA16C9D3E0201EEDC1",
+                    "command": {
+                        "on_off": 0
+                    }
                 }
             ]
         },
         {
-            "name": "Nightly Shutdown",
+            "name": "Bedtime Shutdown",
             "enabled": true,
             "trigger": {
                 "type": "daily",
@@ -223,6 +315,12 @@
                     "subDevice": "counterLights",
                     "command": "setPercentage",
                     "argument": 60
+                },
+                {
+                    "deviceKey": "kasa.8012511ABF75C811DB47A833DD2EDAED1F791417",
+                    "command": {
+                        "brightness": 100
+                    }
                 }
             ]
         },
@@ -255,6 +353,12 @@
                     "subDevice": "counterLights",
                     "command": "setPercentage",
                     "argument": 3
+                },
+                {
+                    "deviceKey": "kasa.8012511ABF75C811DB47A833DD2EDAED1F791417",
+                    "command": {
+                        "brightness": 6
+                    }
                 }
             ]
         }

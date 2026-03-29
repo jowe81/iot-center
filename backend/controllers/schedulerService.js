@@ -2,6 +2,7 @@ import { createRequire } from 'module';
 import suncalc from 'suncalc';
 import log from '../utils/logger.js';
 import { addCommand } from './commandService.js';
+import { getDeviceByKey } from './logicalDeviceManager.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -111,12 +112,21 @@ const checkSchedules = async (isInitialRun = false) => {
                 log.info(`${LOG_TAG} Triggering schedule "${schedule.name}"`);
                 for (const target of schedule.targets) {
                     try {
-                        if (target.command && typeof target.command === 'object') {
-                            await addCommand(target.deviceId, target.command);
-                            log.info(`${LOG_TAG} Queued command object for ${target.deviceId}`);
+                        const logicalDevice = await getDeviceByKey(target.deviceKey);
+                        if (logicalDevice) {
+                            await logicalDevice.sendCommand(target.command);
                         } else {
-                            await addCommand(target.deviceId, { [target.subDevice]: { [target.command]: target.argument } });
-                            log.info(`${LOG_TAG} Queued command "${target.command}" for ${target.deviceId}/${target.subDevice}`);
+                            if (target.command && typeof target.command === "object") {
+                                await addCommand(target.deviceId, target.command);
+                                log.info(`${LOG_TAG} Queued command object for ${target.deviceId}`);
+                            } else {
+                                await addCommand(target.deviceId, {
+                                    [target.subDevice]: { [target.command]: target.argument },
+                                });
+                                log.info(
+                                    `${LOG_TAG} Queued command "${target.command}" for ${target.deviceId}/${target.subDevice}`,
+                                );
+                            }
                         }
                     } catch (e) {
                         log.error(`${LOG_TAG} Failed to queue command for schedule "${schedule.name}"`, e);

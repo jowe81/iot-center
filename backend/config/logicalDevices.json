@@ -1,0 +1,621 @@
+{
+    "kasa.8006EC0AF98C16E29E7FBC334BF38885205D22E701": {
+        "name": "Kasa_Smart Plug_9935_1",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.8006EC0AF98C16E29E7FBC334BF38885205D22E700": {
+        "name": "Kasa_Smart Plug_9935_0",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.80120CD616EF7A3088B8A38BB8E191171F54389E": {
+        "name": "Bed Shelf Strip",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8006EC0AF98C16E29E7FBC334BF38885205D22E702": {
+        "name": "Kasa_Smart Plug_9935_2",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "iot.woodshed_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "trigger",
+            "interval"
+        ]
+    },
+    "iot.woodshed_01.batteryMonitor": {
+        "name": "batteryMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "BatteryMonitor",
+        "hardwareName": "batteryMonitor",
+        "metrics": [
+            "voltage",
+            "voltageRaw",
+            "adjustment",
+            "netCharge_Wh"
+        ]
+    },
+    "iot.woodshed_01.tempOutside": {
+        "name": "tempOutside",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "tempOutside",
+        "metrics": [
+            "tempC"
+        ]
+    },
+    "iot.woodshed_01.battery": {
+        "name": "battery",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "battery",
+        "metrics": [
+            "tempC"
+        ]
+    },
+    "iot.woodshed_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "uptime",
+            "rssi",
+            "largestBlock",
+            "loopDelay"
+        ]
+    },
+    "iot.woodshed_01.rgbStrip": {
+        "name": "rgbStrip",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "RGB",
+        "hardwareName": "rgbStrip",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "percentage",
+            "r",
+            "g",
+            "b",
+            "autoOffTimer",
+            "fadeDuration",
+            "frequency"
+        ]
+    },
+    "iot.woodshed_01.lightInside": {
+        "name": "lightInside",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "lightInside",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "percentage",
+            "autoOffTimer",
+            "fadeDuration",
+            "frequency"
+        ]
+    },
+    "iot.woodshed_01.lightOutside": {
+        "name": "lightOutside",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "lightOutside",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "percentage",
+            "autoOffTimer",
+            "fadeDuration",
+            "frequency"
+        ]
+    },
+    "iot.woodshed_01.loadMeter": {
+        "name": "loadMeter",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "INA219",
+        "hardwareName": "loadMeter",
+        "metrics": [
+            "current_mA",
+            "voltage_V",
+            "power_mW",
+            "readingsCount",
+            "interval",
+            "bufferSize",
+            "averagingSamples",
+            "calibrationMode"
+        ]
+    },
+    "iot.woodshed_01.chargeMeter": {
+        "name": "chargeMeter",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "INA219",
+        "hardwareName": "chargeMeter",
+        "metrics": [
+            "current_mA",
+            "voltage_V",
+            "power_mW",
+            "readingsCount",
+            "interval",
+            "bufferSize",
+            "averagingSamples",
+            "calibrationMode"
+        ]
+    },
+    "iot.woodshed_01.controlBox": {
+        "name": "controlBox",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "BME280",
+        "hardwareName": "controlBox",
+        "metrics": [
+            "pressure",
+            "pressureSeaLevel",
+            "humidity",
+            "temperature",
+            "pressOffset",
+            "humOffset",
+            "tempCOffset",
+            "interval"
+        ]
+    },
+    "iot.recroom_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "interval",
+            "trigger"
+        ]
+    },
+    "iot.recroom_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "largestBlock",
+            "uptime",
+            "loopDelay"
+        ]
+    },
+    "iot.recroom_01.shtSensor": {
+        "name": "shtSensor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "SHT31",
+        "hardwareName": "shtSensor",
+        "metrics": [
+            "tempC",
+            "humidity",
+            "interval",
+            "tempCOffset",
+            "humOffset"
+        ]
+    },
+    "iot.recroom_01.woodstove": {
+        "name": "woodstove",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "woodstove",
+        "metrics": [
+            "tempC",
+            "tempCOffset",
+            "woodstoveState"
+        ]
+    },
+    "iot.recroom_01.woodstoveStatusLed": {
+        "name": "woodstoveStatusLed",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "RGB",
+        "hardwareName": "woodstoveStatusLed",
+        "metrics": [
+            "isOn",
+            "percentage",
+            "r",
+            "g",
+            "b",
+            "frequency"
+        ]
+    },
+    "kasa.80061465B741F3D278857FD2F8E09CD020C3200A": {
+        "name": "Stove Fan",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.801224EDFE01CB1C1940AB267D059AFE201D2D46": {
+        "name": "Above bar",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8012511ABF75C811DB47A833DD2EDAED1F791417": {
+        "name": "Night Light",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8012410A7B3C6C369B10E0D889820C51201E08CC": {
+        "name": "Fireplace",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804801": {
+        "name": "Counter",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804800": {
+        "name": "J&Js Bar",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.8012E7EA0A70974D997DE95E898FBA261F980E1A": {
+        "name": "Front Door Lamp",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8006DE7EE2F73CBEA4629F293A1684A52042804802": {
+        "name": "Ceil Strip",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.80125D66D3B56B9365A992BA16C9D3E0201EEDC1": {
+        "name": "Under Bar",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    },
+    "kasa.8006FDF98E41AFB5E2E33F27779742F7203AF7AC": {
+        "name": "Bar Top",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "iot.office_johannes_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "interval",
+            "trigger"
+        ]
+    },
+    "iot.office_johannes_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "largestBlock",
+            "uptime",
+            "loopDelay"
+        ]
+    },
+    "iot.office_johannes_01.shtSensor": {
+        "name": "shtSensor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "SHT31",
+        "hardwareName": "shtSensor",
+        "metrics": [
+            "tempC",
+            "humidity",
+            "interval",
+            "tempCOffset",
+            "humOffset"
+        ]
+    },
+    "iot.office_johannes_01.humidifier": {
+        "name": "humidifier",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "humidifier",
+        "metrics": [
+            "isOn"
+        ]
+    },
+    "iot.office_johannes_01.fan": {
+        "name": "fan",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "fan",
+        "metrics": [
+            "isOn"
+        ]
+    },
+    "iot.office_johannes_01.humidifierTank": {
+        "name": "humidifierTank",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "Capacitive",
+        "hardwareName": "humidifierTank",
+        "metrics": [
+            "value"
+        ]
+    },
+    "kasa.80068105FEB3EACD7AC20A6D1702871720C3A77A": {
+        "name": "Counter",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.8006000F366B7DD70835CBF38A51040620662083": {
+        "name": "Jess Bed Switch",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C00": {
+        "name": "Corona",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C01": {
+        "name": "Budweiser",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C02": {
+        "name": "Bedroom Fan",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "plug",
+        "kasa": {
+            "mic_type": "IOT.SMARTPLUGSWITCH"
+        }
+    },
+    "iot.kitchen_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "interval",
+            "trigger"
+        ]
+    },
+    "iot.kitchen_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "uptime"
+        ]
+    },
+    "iot.kitchen_01.tempKitchen": {
+        "name": "tempKitchen",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "tempKitchen",
+        "metrics": [
+            "tempC",
+            "tempCOffset"
+        ]
+    },
+    "iot.kitchen_01.counterLights": {
+        "name": "counterLights",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "counterLights",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "percentage",
+            "autoOffTimer",
+            "fadeDuration",
+            "frequency"
+        ]
+    },
+    "iot.livingroom_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "interval",
+            "trigger"
+        ]
+    },
+    "iot.livingroom_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "largestBlock",
+            "uptime",
+            "loopDelay"
+        ]
+    },
+    "iot.livingroom_01.shtSensor": {
+        "name": "shtSensor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "SHT31",
+        "hardwareName": "shtSensor",
+        "metrics": [
+            "tempC",
+            "humidity",
+            "interval",
+            "tempCOffset",
+            "humOffset"
+        ]
+    },
+    "iot.livingroom_01.woodRackLights": {
+        "name": "woodRackLights",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "RGB",
+        "hardwareName": "woodRackLights",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "percentage",
+            "r",
+            "g",
+            "b",
+            "autoOffTimer",
+            "fadeDuration",
+            "frequency"
+        ]
+    },
+    "kasa.801264A4EC3F66CAC02D4FF78712E6D11F992564": {
+        "name": "Bedroom Ceiling 1",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
+    }
+}

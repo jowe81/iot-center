@@ -1,6 +1,8 @@
 import TPLink from 'tplink-smarthome-api';
 import log from '../utils/logger.js';
 import { createRequire } from 'module';
+import { updateOrCreateDevice } from './logicalDeviceManager.js';
+import { saveConfig } from '../utils/configUtils.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -8,7 +10,7 @@ const { Client } = TPLink;
 const LOG_TAG = '[KasaService]';
 
 const kasaOptions = iotConfig.system?.kasa || {};
-const configuredLevel = kasaOptions.logLevel || 'warn';
+const logLevel = kasaOptions.logLevel;
 const myLevels = { debug: 0, info: 1, warn: 2, error: 3 };
 
 const createLibraryLogger = (level) => {
@@ -17,7 +19,7 @@ const createLibraryLogger = (level) => {
     }
     
     return (message, ...args) => {
-        if (myLevels[level] >= myLevels[configuredLevel]) {
+        if (myLevels[level] >= myLevels[logLevel]) {
             const fullMessage = [message, ...args].join(' ');
             log[level](`[tplink-smarthome-api] ${fullMessage}`);
         }
@@ -25,7 +27,7 @@ const createLibraryLogger = (level) => {
 };
 
 const logger =
-    kasaOptions.log === false
+    kasaOptions.libraryLogger === false
         ? {
               debug: createLibraryLogger(false),
               info: createLibraryLogger(false),
@@ -46,7 +48,7 @@ const discoveredDevices = new Map();
 const deviceStates = new Map();
 
 const pollDeviceStates = async () => {
-    log.debug(`${LOG_TAG} Polling Kasa device states...`);
+    log.debug(`${LOG_TAG} Polling Kasa device states...`, logLevel);
     for (const device of discoveredDevices.values()) {
         try {
             const sysInfo = await device.getSysInfo();
@@ -56,13 +58,13 @@ const pollDeviceStates = async () => {
             if (device.deviceType === 'plug') {
                 newState = sysInfo.relay_state;
                 if (oldState !== undefined && oldState !== newState) {
-                    log.info(`${LOG_TAG} State change for ${device.alias}: power is now ${newState === 1 ? 'ON' : 'OFF'}.`);
+                    log.info(`${LOG_TAG} State change for ${device.alias}: power is now ${newState === 1 ? 'ON' : 'OFF'}.`, logLevel);
                 }
             } else if (device.deviceType === 'bulb') {
                 newState = sysInfo.light_state;
                 // Deep comparison for object
                 if (oldState !== undefined && JSON.stringify(oldState) !== JSON.stringify(newState)) {
-                    log.info(`${LOG_TAG} State change for ${device.alias}: light_state is now ${JSON.stringify(newState)}.`);
+                    log.info(`${LOG_TAG} State change for ${device.alias}: light_state is now ${JSON.stringify(newState)}.`, logLevel);
                 }
             }
 
@@ -71,7 +73,7 @@ const pollDeviceStates = async () => {
                 deviceStates.set(device.id, newState);
             }
         } catch (e) {
-            log.error(`${LOG_TAG} Error polling state for ${device.alias}: ${e.message}`);
+            log.error(`${LOG_TAG} Error polling state for ${device.alias}: ${e.message}`, e, logLevel);
         }
     }
 };
@@ -81,29 +83,25 @@ const pollDeviceStates = async () => {
  */
 export const initKasaService = () => {
     if (kasaOptions.enabled === false) {
-        log.info(`${LOG_TAG} Kasa device discovery disabled.`);
+        log.info(`${LOG_TAG} Kasa device discovery disabled.`, logLevel);
         return;
     }
 
-    log.info(`${LOG_TAG} Starting Kasa device discovery...`);
+    log.info(`${LOG_TAG} Starting Kasa device discovery...`, logLevel);
 
     client.startDiscovery(kasaOptions?.discoveryOptions || {}).on('device-new', async (device) => {
         log.info(`${LOG_TAG} Discovered Kasa device: ${device.alias} (${device.id}) at ${device.host}`);
         // Index device by its unique device ID. This is static unlike alias or host.
         discoveredDevices.set(device.id, device);
 
-        try {
-            const sysInfo = await device.getSysInfo();
-            deviceStates.set(device.id, device.deviceType === 'bulb' ? sysInfo.light_state : sysInfo.relay_state);
-        } catch (e) {
-            log.error(`${LOG_TAG} Could not get initial state for ${device.alias}`, e);
-        }
+        const deviceKey = `kasa.${device.id}`;
+        await updateOrCreateDevice(deviceKey, { device });
     });
 
     const pollingInterval = (kasaOptions.pollingIntervalSeconds || 0) * 1000;
     if (pollingInterval > 0) {
         setInterval(pollDeviceStates, pollingInterval);
-        log.info(`${LOG_TAG} Started polling for Kasa device state changes every ${pollingInterval / 1000} seconds.`);
+        log.info(`${LOG_TAG} Started polling for Kasa device state changes every ${pollingInterval / 1000} seconds.`, logLevel);
     }
 };
 
@@ -125,48 +123,47 @@ export const getKasaDevice = async (identifier) => {
         }
     }
 
-    log.warn(`${LOG_TAG} Kasa device "${identifier}" not found in discovered devices cache.`);
+    log.warn(`${LOG_TAG} Kasa device "${identifier}" not found in discovered devices cache.`, logLevel);
     return null;
 };
 
-/**
- * Sends a command to a specific Kasa device.
- * @param {string} deviceIdentifier The device ID, alias, or host IP of the target device.
- * @param {string} command The command to execute (e.g., 'plug.setPowerState', 'getSysInfo').
- * @param  {...any} args Arguments for the command.
- * @returns {Promise<any>} The result of the command execution.
- */
-export const sendKasaCommand = async (deviceIdentifier, command, ...args) => {
-    const device = await getKasaDevice(deviceIdentifier);
-    if (!device) {
-        log.error(`${LOG_TAG} Cannot send command, Kasa device "${deviceIdentifier}" not found.`);
-        return;
-    }
-
-    const [mainCmd, subCmd] = command.split('.');
-
-    try {
-        // e.g., command is 'plug.setPowerState'
-        // mainCmd = 'plug', subCmd = 'setPowerState'
-        // device[mainCmd] would be device.plug
-        // and we call device.plug.setPowerState(...args)
-        const target = subCmd ? device[mainCmd] : device;
-        const method = subCmd || mainCmd;
-
-        if (target && typeof target[method] === 'function') {
-            log.info(`${LOG_TAG} Sending command "${command}" to Kasa device "${device.alias}".`);
-            return await targetmethod;
-        } else {
-            log.error(`${LOG_TAG} Command "${command}" not found or not a function on Kasa device "${device.alias}".`);
-        }
-    } catch (e) {
-        log.error(`${LOG_TAG} Error sending command "${command}" to Kasa device "${device.alias}"`, e);
-    }
-};
 
 
 /**
 
+7|iotcenter  | {
+7|iotcenter  |   sw_ver: '1.0.7 Build 211101 Rel.175534',
+7|iotcenter  |   hw_ver: '3.0',
+7|iotcenter  |   model: 'HS220(US)',
+7|iotcenter  |   deviceId: '8006FDF98E41AFB5E2E33F27779742F7203AF7AC',
+7|iotcenter  |   oemId: '774577CB2E1782A8BA53CDBBA136FAE6',
+7|iotcenter  |   hwId: '50B3F5C5DF12106A8C85E8903749DF1B',
+7|iotcenter  |   rssi: -67,
+7|iotcenter  |   latitude_i: 0,
+7|iotcenter  |   longitude_i: 0,
+7|iotcenter  |   alias: 'Bar Top',
+7|iotcenter  |   status: 'new',
+7|iotcenter  |   mic_type: 'IOT.SMARTPLUGSWITCH',
+7|iotcenter  |   feature: 'TIM',
+7|iotcenter  |   mac: '1C:61:B4:E5:42:F6',
+7|iotcenter  |   updating: 0,
+7|iotcenter  |   led_off: 0,
+7|iotcenter  |   relay_state: 1,
+7|iotcenter  |   brightness: 38,
+7|iotcenter  |   on_time: 443075,
+7|iotcenter  |   icon_hash: '',
+7|iotcenter  |   dev_name: 'Wi-Fi Smart Dimmer',
+7|iotcenter  |   active_mode: 'none',
+7|iotcenter  |   next_action: { type: -1 },
+7|iotcenter  |   preferred_state: [
+7|iotcenter  |     { index: 0, brightness: 100 },
+7|iotcenter  |     { index: 1, brightness: 75 },
+7|iotcenter  |     { index: 2, brightness: 50 },
+7|iotcenter  |     { index: 3, brightness: 25 }
+7|iotcenter  |   ],
+7|iotcenter  |   ntc_state: 0,
+7|iotcenter  |   err_code: 0
+7|iotcenter  | }
 
 8|iotcenter  | [INFO]  2026-03-10T03:34:25.046Z - [KasaService] Initial state for Stove Fan:
 8|iotcenter  | {

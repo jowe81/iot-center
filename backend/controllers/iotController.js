@@ -4,6 +4,7 @@ import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
 import { broadcast, sendToClient } from './websocketService.js';
 import { runDataDrivenActions } from './actionService.js';
+import { updateOrCreateDevice } from './logicalDeviceManager.js';
 import { fetchDeviceStats, getSingleDeviceStatusData } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
@@ -59,11 +60,11 @@ const validateDevice = (deviceId, protocol) => {
     return { valid: true, settings: deviceSettings };
 };
 
-const processIncomingData = (data, deviceConfig) => {
+const processIncomingData = async (data, deviceConfig, deviceId) => {
     const filteredData = { data: {} };
     const pluginsToRun = [];
 
-    const processItem = (item, type, subtype, name) => {
+    const processItem = async (item, type, subtype, name) => {
         if (!type || !subtype || !name) return;
 
         // Handle Wildcards: Check "Type.Subtype" then "Type.Subtype.*"
@@ -97,18 +98,23 @@ const processIncomingData = (data, deviceConfig) => {
                 }
             }
         }
+
+        // Maintain a logical device instance for each sub-device reported.
+        const deviceKey = `iot.${deviceId}.${name}`;
+        await updateOrCreateDevice(deviceKey, {typeConfig, latestRawData: item});
+
     };
 
     if (Array.isArray(data)) {
         for (const item of data) {
-            processItem(item, item.type, item.subtype, item.name);
+            await processItem(item, item.type, item.subtype, item.name);
         }
     } else {
         for (const [key, value] of Object.entries(data)) {
             if (value && typeof value === 'object') {
                 const type = value.type;
                 const subtype = value.subType || value.subtype;
-                processItem(value, type, subtype, key);
+                await processItem(value, type, subtype, key);
             }
         }
     }
@@ -192,7 +198,7 @@ const saveAndBroadcast = async (deviceId, filteredData, rawData, protocol) => {
     broadcast('LATEST_RAW', { deviceId, payload: rawData });
     const stats = await fetchDeviceStats(deviceId);
     const singleDeviceStatus = await getSingleDeviceStatusData(deviceId);
-    broadcast('STATUS_UPDATE', singleDeviceStatus);
+    broadcast('STATUS_UPDATE', { payload: singleDeviceStatus });
     broadcast('STATS', { deviceId, payload: stats });
 };
 
@@ -236,7 +242,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
         const deviceSettings = validation.settings;
 
         // Process Data
-        const { filteredData, pluginsToRun } = processIncomingData(data, deviceSettings.data || {});
+        const { filteredData, pluginsToRun } = await processIncomingData(data, deviceSettings.data || {}, deviceId);
         
         // Add a timestamp automatically
         filteredData.receivedAt = new Date();
