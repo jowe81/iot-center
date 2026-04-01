@@ -617,5 +617,15 @@
         "kasa": {
             "mic_type": "IOT.SMARTBULB"
         }
+    },
+    "kasa.80124378042EF9B324B75F639D993F9F20F23759": {
+        "name": "Hallway",
+        "aliases": [],
+        "driver": "kasa",
+        "category": "power",
+        "type": "light",
+        "kasa": {
+            "mic_type": "IOT.SMARTBULB"
+        }
     }
 }

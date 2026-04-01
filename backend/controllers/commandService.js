@@ -14,7 +14,7 @@ export const addCommand = async (deviceId, commandObj) => {
         status: 'pending',
         createdAt: new Date()
     });
-    broadcast('COMMAND_UPDATED', { deviceId, commandId: result.insertedId, status: 'pending', command: commandObj });
+    broadcast('COMMAND_UPDATED', { deviceId, payload: { commandId: result.insertedId, status: 'pending', command: commandObj } });
 
     // Attempt to send immediately if the device is connected via MQTT
     try {
@@ -39,7 +39,7 @@ export const markCommandAsSent = async (commandId) => {
         { _id: new ObjectId(commandId) },
         { $set: { status: 'sent', sentAt: new Date() } }
     );
-    broadcast('COMMAND_UPDATED', { commandId, status: 'sent' });
+    broadcast('COMMAND_UPDATED', { payload: { commandId, status: 'sent' } });
 };
 
 export const getPendingCommands = async (deviceId) => {
@@ -72,7 +72,7 @@ export const getPendingCommands = async (deviceId) => {
         { $set: { status: 'sent', sentAt: new Date() } }
     );
     objectIds.forEach(id => {
-        broadcast('COMMAND_UPDATED', { commandId: id, status: 'sent' });
+        broadcast('COMMAND_UPDATED', { payload: { commandId: id, status: 'sent' } });
     });
 
     if (commandIds.length > 0) {
@@ -112,7 +112,7 @@ export const acknowledgeCommands = async (commandIdsString) => {
             { $set: { status: 'acknowledged', ackAt: new Date() } }
         );
         objectIds.forEach(id => {
-            broadcast('COMMAND_UPDATED', { commandId: id, status: 'acknowledged' });
+            broadcast('COMMAND_UPDATED', { payload: { commandId: id, status: 'acknowledged' } });
         });
         if (result.matchedCount > 0) {
             return objectIds.map(id => id.toString());

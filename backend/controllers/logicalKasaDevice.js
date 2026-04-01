@@ -69,6 +69,18 @@ export class LogicalKasaDevice extends LogicalDevice {
         }
     }
 
+    /**
+     * Queries the Kasa device for its current system information.
+     */
+    async getData() {
+        try {
+            return await this.device.getSysInfo();
+        } catch (e) {
+            log.error(`${LOG_TAG} Failed to get data for Kasa device ${this.deviceKey}: ${e.message}`, e, this.logLevel);
+            return null;
+        }
+    }
+
      async updateConfig() {
          try {
              this.sysInfo = await this.device.getSysInfo();

@@ -4,7 +4,7 @@ import log from "../utils/logger.js";
 import { getPendingCommands, acknowledgeCommands } from './commandService.js';
 import { broadcast, sendToClient } from './websocketService.js';
 import { runDataDrivenActions } from './actionService.js';
-import { updateOrCreateDevice } from './logicalDeviceManager.js';
+import { updateOrCreateDevice, getDeviceByKey } from './logicalDeviceManager.js';
 import { fetchDeviceStats, getSingleDeviceStatusData } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
@@ -198,7 +198,7 @@ const saveAndBroadcast = async (deviceId, filteredData, rawData, protocol) => {
     broadcast('LATEST_RAW', { deviceId, payload: rawData });
     const stats = await fetchDeviceStats(deviceId);
     const singleDeviceStatus = await getSingleDeviceStatusData(deviceId);
-    broadcast('STATUS_UPDATE', { payload: singleDeviceStatus });
+    broadcast('STATUS_UPDATE', { deviceId, payload: singleDeviceStatus });
     broadcast('STATS', { deviceId, payload: stats });
 };
 
@@ -280,5 +280,25 @@ export const processData = async (req, res) => {
     } catch (error) {
         // If the error was thrown by processDeviceMessage, it's already logged
         res.status(500).send(error.message);
+    }
+};
+
+/**
+ * Queries a specific logical device for its current data.
+ */
+export const getLogicalDeviceData = async (req, res) => {
+    try {
+        const { deviceKey } = req.params;
+        const device = getDeviceByKey(deviceKey);
+
+        if (!device) {
+            return res.status(404).json({ error: 'Logical device not found' });
+        }
+
+        const data = await device.getData();
+        res.json(data);
+    } catch (error) {
+        log.error(`Error fetching logical device data for ${req.params.deviceKey}:`, error);
+        res.status(500).json({ error: error.message });
     }
 };

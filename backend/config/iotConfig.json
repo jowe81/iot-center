@@ -250,10 +250,10 @@
                     }
                 },
                 {
-                    "label": "Plug 3",
+                    "label": "Plug 3 (Power for 'Above Bar')",
                     "deviceKey": "kasa.80065A4E60A835C49695A74DA7FAE76520436E9C02",
                     "command": {
-                        "on_off": 0
+                        "on_off": 1
                     }
                 },
                 {

@@ -47,6 +47,13 @@ class LogicalDevice {
     }
 
     /**
+     * Generic data retrieval function - this should be overridden
+     */
+    async getData() {
+        return null;
+    }
+
+    /**
      * Generic configuration update function - this should be overridden
      */
     async updateConfig() {

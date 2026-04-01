@@ -1,6 +1,7 @@
 import log from '../utils/logger.js';
 import LogicalDevice from './logicalDevice.js';
 import { saveLogicalDevicesConfig, logicalDevicesConfig } from '../utils/configUtils.js';
+import { getDb } from '../config/db.js';
 import { addCommand } from './commandService.js';
 
 /**
@@ -36,6 +37,33 @@ export class LogicalIotDevice extends LogicalDevice {
         };
 
         await addCommand(this.deviceId, commandObj);
+    }
+
+    /**
+     * Returns the latest processed data for this specific IoT sub-device from the database.
+     * This includes any data enriched or calculated by plugins.
+     */
+    async getData() {
+        const db = getDb();
+        const collection = db.collection(`device_${this.deviceId}`);
+        const latestDoc = await collection.findOne(
+            {},
+            { sort: { receivedAt: -1 }, projection: { data: 1 } }
+        );
+
+        if (!latestDoc || !latestDoc.data) {
+            return null;
+        }
+
+        // Iterate through types and subtypes to find the data for this subDeviceName
+        for (const typeKey in latestDoc.data) {
+            for (const subtypeKey in latestDoc.data[typeKey]) {
+                if (latestDoc.data[typeKey][subtypeKey][this.subDeviceName]) {
+                    return latestDoc.data[typeKey][subtypeKey][this.subDeviceName];
+                }
+            }
+        }
+        return null;
     }
 
     async updateConfig() {
