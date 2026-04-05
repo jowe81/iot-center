@@ -12,6 +12,7 @@ import { initWebSocket } from './controllers/websocketService.js';
 import { initSchedulerService } from './controllers/schedulerService.js';
 import { initActionService } from './controllers/actionService.js';
 import { initKasaService } from './controllers/kasaService.js';
+import { initVirtualDeviceService } from './controllers/virtualDeviceService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,7 @@ connectDB().then(() => {
   initSchedulerService();
   initActionService();
   initKasaService();
+  initVirtualDeviceService();
 });
 
 app.use(express.json());

@@ -10,6 +10,9 @@ import { addCommand } from './commandService.js';
 export class LogicalIotDevice extends LogicalDevice {
     constructor(deviceKey, data, logLevel) {
         super(deviceKey, data, logLevel);
+        this._cachedData = null;
+        this._cachedReceivedAt = null;
+        this._lastDbFetchAttempt = 0;
     }
 
     /**
@@ -44,26 +47,45 @@ export class LogicalIotDevice extends LogicalDevice {
      * This includes any data enriched or calculated by plugins.
      */
     async getData() {
+        const THROTTLE_MS = 60000; // 1 minute
+        const now = Date.now();
+
+        // 1. Throttle check: Only query if at least a minute has passed since the last attempt
+        if (now - this._lastDbFetchAttempt < THROTTLE_MS) {
+            return this._cachedData;
+        }
+
+        this._lastDbFetchAttempt = now;
+
         const db = getDb();
         const collection = db.collection(`device_${this.deviceId}`);
+
+        // 2. Build query to only pull if there's a newer entry than the one in memory
+        const query = this._cachedReceivedAt ? { receivedAt: { $gt: this._cachedReceivedAt } } : {};
+
         const latestDoc = await collection.findOne(
-            {},
-            { sort: { receivedAt: -1 }, projection: { data: 1 } }
+            query,
+            { sort: { receivedAt: -1 }, projection: { data: 1, receivedAt: 1 } }
         );
 
-        if (!latestDoc || !latestDoc.data) {
-            return null;
-        }
-
-        // Iterate through types and subtypes to find the data for this subDeviceName
-        for (const typeKey in latestDoc.data) {
-            for (const subtypeKey in latestDoc.data[typeKey]) {
-                if (latestDoc.data[typeKey][subtypeKey][this.subDeviceName]) {
-                    return latestDoc.data[typeKey][subtypeKey][this.subDeviceName];
+        if (latestDoc && latestDoc.data) {
+            let foundData = null;
+            // Iterate through types and subtypes to find the data for this subDeviceName
+            outer: for (const typeKey in latestDoc.data) {
+                for (const subtypeKey in latestDoc.data[typeKey]) {
+                    if (latestDoc.data[typeKey][subtypeKey][this.subDeviceName]) {
+                        foundData = latestDoc.data[typeKey][subtypeKey][this.subDeviceName];
+                        break outer;
+                    }
                 }
             }
+            
+            if (foundData) {
+                this._cachedData = foundData;
+                this._cachedReceivedAt = latestDoc.receivedAt;
+            }
         }
-        return null;
+        return this._cachedData;
     }
 
     async updateConfig() {

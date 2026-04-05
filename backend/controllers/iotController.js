@@ -48,12 +48,16 @@ const validateDevice = (deviceId, protocol) => {
         return { valid: false, error: "Unknown device", statusCode: 200 }; // 200 to ignore silently-ish
     }
 
+    if (protocol === 'VIRTUAL' && deviceSettings.network?.virtual === true) {
+        return { valid: true, settings: deviceSettings };
+    }
+
     if (deviceSettings.network && deviceSettings.network.protocol) {
         const configuredProtocols = Array.isArray(deviceSettings.network.protocol)
             ? deviceSettings.network.protocol
             : [deviceSettings.network.protocol];
 
-        if (protocol !== 'UNKNOWN' && !configuredProtocols.includes(protocol.toLowerCase())) {
+        if (protocol !== 'UNKNOWN' && protocol !== 'VIRTUAL' && !configuredProtocols.includes(protocol.toLowerCase())) {
             return { valid: false, error: "Protocol not allowed", statusCode: 403 };
         }
     }

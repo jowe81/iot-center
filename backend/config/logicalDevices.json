@@ -627,5 +627,17 @@
         "kasa": {
             "mic_type": "IOT.SMARTBULB"
         }
+    },
+    "iot.aggregates.spatialAverageInside": {
+        "name": "spatialAverageInside",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "aggregateTemp",
+        "hardwareName": "spatialAverageInside",
+        "metrics": [
+            "tempC",
+            "sensors"
+        ]
     }
 }

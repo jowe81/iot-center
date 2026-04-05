@@ -53,12 +53,16 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
         return "off";
     }
 
-    let previousState = previousValue || 'off';
-    previousState = previousState.toLowerCase();
+    let previousState = 'off';
+    if (typeof previousValue === 'string') {
+        previousState = previousValue.toLowerCase();
+    } else if (previousValue && typeof previousValue === 'object' && previousValue.state) {
+        previousState = previousValue.state.toLowerCase();
+    }
     log.debug(`${LOG_TAG} currentTemp=${currentTemp}, previousState=${previousState}`, logLevel);
 
     // Configuration
-    const HISTORY_MINUTES = options.historyMinutes || 60;
+    const HISTORY_MINUTES = options.historyMinutes || 75;
     const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 10;
     let AMBIENT_TEMP = options.ambientTemp || 22;
 
@@ -157,9 +161,19 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     // Reuse helper for second derivative
     const slopeDerivative = calculateLinearRegressionSlope(slopes, slopeWindowMs, Date.now());
 
-    // Calculate Max Temp in the history window (local peak)
-    const maxTemp = Math.max(...points.map(p => p.val));
-    log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, derivative=${slopeDerivative.toFixed(4)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}`, logLevel);
+    // Calculate Max Temp and time since peak in the history window
+    let peakPoint = points[0];
+    for (const p of points) {
+        // Use >= to find the most recent peak if values are identical
+        if (p.val >= peakPoint.val) {
+            peakPoint = p;
+        }
+    }
+    
+    const maxTemp = peakPoint.val;
+    const timeSincePeakMs = Date.now() - peakPoint.time;
+
+    log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, derivative=${slopeDerivative.toFixed(4)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}, timeSincePeak=${(timeSincePeakMs / 60000).toFixed(1)}m`, logLevel);
 
     const tempIsRising = slope > RISE_SLOPE_THRESHOLD;
     const tempIsFalling = slope < DROP_SLOPE_THRESHOLD;
@@ -228,8 +242,16 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             const minutesSinceRunning = (Date.now() - lastRunningTime) / 60000;
             const isLockedOut = minutesSinceRunning < REFUEL_LOCKOUT_MINUTES;
 
-            // Condition: Significant relative drop from the peak temp AND temp is dropping  AND the drop is accelerating.
-            if (!isLockedOut && ((tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || !tempIsAboveRunningThreshold)) {
+            const timeSincePeakMinutes = timeSincePeakMs / 60000;
+
+            // Condition: Significant relative drop from the peak temp AND temp is dropping AND the drop is accelerating,
+            // OR temp has fallen below running threshold,
+            // OR it has been more than 60 minutes since the temperature peak.
+            if (!isLockedOut && (
+                (tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || 
+                !tempIsAboveRunningThreshold || 
+                timeSincePeakMinutes > 60
+            )) {
                 newState = "refuel";
                 log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
                 if (tempHasDroppedSignificantlyFromPeak) { 
@@ -243,6 +265,9 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
                 if (!tempIsAboveRunningThreshold) {
                     log.debug(`  - Temp has fallen below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
+                }
+                if (timeSincePeakMinutes > 60) {
+                    log.debug(`  - Time since peak is > 60m: ${timeSincePeakMinutes.toFixed(1)}m`, logLevel);
                 }
             } else if (isLockedOut && ((tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || !tempIsAboveRunningThreshold)) {
                 log.debug(`${LOG_TAG} Transition to refuel suppressed by lockout (${minutesSinceRunning.toFixed(1)}m < ${REFUEL_LOCKOUT_MINUTES}m)`, logLevel);

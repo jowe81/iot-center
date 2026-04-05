@@ -364,6 +364,22 @@
         }
     ],
     "devices": {
+        "aggregates": {
+            "meta": {
+                "name": "Aggregates"
+            },
+            "network": {
+                "virtual": true
+            },
+            "data": {
+                "Sensor.aggregateTemp": {
+                    "tempC": true,
+                    "sensors": true
+                }
+            },
+            "plugin": "aggregates",
+            "interval": 60000
+        },
         "woodshed_01": {
             "meta": {
                 "name": "Woodshed"
