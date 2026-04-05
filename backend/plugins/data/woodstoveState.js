@@ -9,9 +9,9 @@ const LOG_TAG = '[Plugin: WoodstoveState]';
 
 export const run = async (deviceId, filteredData, inputs, outputKey, options, db, lastRecord, previousValue) => {
     // Helper function for linear regression slope calculation
-    const calculateLinearRegressionSlope = (dataPoints, windowMinutes, endTime) => {
-        const windowStart = endTime - windowMinutes * 60 * 1000;
-        const relevantPoints = dataPoints.filter(p => p.time >= windowStart && p.time <= endTime);
+    const calculateLinearRegressionSlope = (dataPoints, windowMs, endTime) => {
+        const windowStart = endTime - windowMs;
+        const relevantPoints = dataPoints.filter(p => p.time >= windowStart && p.time <= (endTime || Date.now()));
     
         if (relevantPoints.length < 2) {
             return 0;
@@ -141,8 +141,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     options._points = points;
 
     // Calculate Slope (Linear Regression over last SLOPE_WINDOW_MINUTES)
-    const slopeWindowStart = Date.now() - SLOPE_WINDOW_MINUTES * 60 * 1000;
-    const slope = calculateLinearRegressionSlope(points, SLOPE_WINDOW_MINUTES, Date.now());
+    const slopeWindowMs = SLOPE_WINDOW_MINUTES * 60 * 1000;
+    const slope = calculateLinearRegressionSlope(points, slopeWindowMs, Date.now());
 
     // Calculate Slope Derivative (Rate of change of the slope)
     // This helps detect if the cooling is slowing down (acceleration)
@@ -150,30 +150,12 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     slopes.push({ time: Date.now(), val: slope });
     
     // Keep slope history same window as slope calculation
-    const slopeHistoryCutoff = Date.now() - (SLOPE_WINDOW_MINUTES * 60 * 1000);
+    const slopeHistoryCutoff = Date.now() - slopeWindowMs;
     slopes = slopes.filter(p => p.time >= slopeHistoryCutoff);
     options._slopes = slopes;
 
-    let slopeDerivative = 0;
-    if (slopes.length >= 2) {
-        const n = slopes.length;
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        const t0 = slopes[0].time;
-        
-        for (const p of slopes) {
-            const x = (p.time - t0) / 60000; // minutes
-            const y = p.val;
-            sumX += x;
-            sumY += y;
-            sumXY += x * y;
-            sumXX += x * x;
-        }
-        
-        const denominator = (n * sumXX - sumX * sumX);
-        if (denominator !== 0) {
-            slopeDerivative = (n * sumXY - sumX * sumY) / denominator;
-        }
-    }
+    // Reuse helper for second derivative
+    const slopeDerivative = calculateLinearRegressionSlope(slopes, slopeWindowMs, Date.now());
 
     // Calculate Max Temp in the history window (local peak)
     const maxTemp = Math.max(...points.map(p => p.val));

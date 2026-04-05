@@ -150,12 +150,12 @@
     ],
     "schedules": [
         {
-            "name": "After Sunset",
+            "name": "Sunset",
             "enabled": true,
             "trigger": {
                 "type": "celestial",
                 "event": "sunset",
-                "offsetMinutes": 30
+                "offsetMinutes": 0
             },
             "targets": [
                 {
