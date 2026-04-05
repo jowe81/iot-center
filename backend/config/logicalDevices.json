@@ -639,5 +639,27 @@
             "tempC",
             "sensors"
         ]
+    },
+    "iot.laundryRoom_legacy.crawlSpace": {
+        "name": "crawlSpace",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "crawlSpace",
+        "metrics": [
+            "tempC"
+        ]
+    },
+    "iot.laundryRoom_legacy.laundryRoom": {
+        "name": "laundryRoom",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "laundryRoom",
+        "metrics": [
+            "tempC"
+        ]
     }
 }

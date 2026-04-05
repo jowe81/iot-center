@@ -380,6 +380,21 @@
             "plugin": "aggregates",
             "interval": 60000
         },
+        "laundryRoom_legacy": {
+            "meta": {
+                "name": "Laundry Room"
+            },
+            "network": {
+                "virtual": true
+            },
+            "data": {
+                "Sensor.DS18B20": {
+                    "tempC": true
+                }
+            },
+            "plugin": "ESP8266LegacyDevice",
+            "interval": 10000
+        },
         "woodshed_01": {
             "meta": {
                 "name": "Woodshed"

@@ -146,12 +146,20 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     // Calculate Slope (Linear Regression over last SLOPE_WINDOW_MINUTES)
     const slopeWindowMs = SLOPE_WINDOW_MINUTES * 60 * 1000;
-    const slope = calculateLinearRegressionSlope(points, slopeWindowMs, Date.now());
+    const rawSlope = calculateLinearRegressionSlope(points, slopeWindowMs, Date.now());
+
+    // Smoothing the slope using a Simple Moving Average (SMA)
+    const SMOOTHING_SAMPLES = options.smoothingSamples || 3;
+    let slopeBuffer = options._slopeBuffer || [];
+    slopeBuffer.push(rawSlope);
+    if (slopeBuffer.length > SMOOTHING_SAMPLES) slopeBuffer.shift();
+    options._slopeBuffer = slopeBuffer;
+    const slope = slopeBuffer.reduce((a, b) => a + b, 0) / slopeBuffer.length;
 
     // Calculate Slope Derivative (Rate of change of the slope)
     // This helps detect if the cooling is slowing down (acceleration)
     let slopes = options._slopes || [];
-    slopes.push({ time: Date.now(), val: slope });
+    slopes.push({ time: Date.now(), val: slope }); // Use smoothed slope for cleaner 2nd derivative
     
     // Keep slope history same window as slope calculation
     const slopeHistoryCutoff = Date.now() - slopeWindowMs;
@@ -159,7 +167,14 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     options._slopes = slopes;
 
     // Reuse helper for second derivative
-    const slopeDerivative = calculateLinearRegressionSlope(slopes, slopeWindowMs, Date.now());
+    const rawSlopeDerivative = calculateLinearRegressionSlope(slopes, slopeWindowMs, Date.now());
+
+    // Smoothing the derivative
+    let derivBuffer = options._derivBuffer || [];
+    derivBuffer.push(rawSlopeDerivative);
+    if (derivBuffer.length > SMOOTHING_SAMPLES) derivBuffer.shift();
+    options._derivBuffer = derivBuffer;
+    const slopeDerivative = derivBuffer.reduce((a, b) => a + b, 0) / derivBuffer.length;
 
     // Calculate Max Temp and time since peak in the history window
     let peakPoint = points[0];
