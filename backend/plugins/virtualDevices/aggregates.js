@@ -68,9 +68,9 @@ const cacheManager = {
             const currentType = typeof _cache.currentReading.sample[key];
             if (lastType !== currentType) {
                 if (currentType === 'number') {
-                    log.info(`Sensor ${key} came online. (${lastType} -> ${currentType})`);
+                    log.info(`Sensor ${key} came online. (${lastType} -> ${currentType})`, logLevel);
                 } else {
-                    log.warn(`Sensor ${key} went offine. (${lastType} -> ${currentType})`);
+                    log.warn(`Sensor ${key} went offine. (${lastType} -> ${currentType})`, logLevel);
                 }
                 haveChanges = true;
             }
@@ -82,26 +82,49 @@ const cacheManager = {
         const current = _cache.currentReading;
         const last = _cache.lastReading;
 
-        current.average = this._getAverage(current.sample, current.sensorsOnline);
+        const expectedKeys = Object.keys(sourceMap);
+        const onlineCount = current.sensorsOnline.length;
+        const totalCount = expectedKeys.length;
 
-        if (this._detectStatusChanges()) {
-            const allDelta = (typeof current.average === 'number' && typeof last.average === 'number')
-                ? current.average - last.average : null;
+        if (onlineCount === totalCount) {
+            // Perfect reading: Update average normally and save as reference
+            current.average = this._getAverage(current.sample, current.sensorsOnline);
+            current.offset = 0;
 
-            const intersection = current.sensorsOnline.filter(key => last.sensorsOnline.includes(key));
-            const lastUnchangedAvg = this._getAverage(last.sample, intersection);
-            const currentUnchangedAvg = this._getAverage(current.sample, intersection);
-            
-            const unchangedDelta = (typeof currentUnchangedAvg === 'number' && typeof lastUnchangedAvg === 'number')
-                ? currentUnchangedAvg - lastUnchangedAvg : null;
+            _cache.lastCompleteReading = {
+                sensorsOnline: [...current.sensorsOnline],
+                sample: { ...current.sample },
+                average: current.average,
+                offset: current.offset,
+            };
+            log.debug(`Updated lastCompleteReading with all ${totalCount} sensors.`, logLevel);
+        } else if (onlineCount > 0 && _cache.lastCompleteReading.sensorsOnline.length === totalCount) {
+            // Contingency: Some sensors offline, but we have a baseline
+            const offlineKeys = expectedKeys.filter((k) => !current.sensorsOnline.includes(k));
 
-            if (allDelta !== null && unchangedDelta !== null) {
-                current.offset = allDelta - unchangedDelta;
+            // 1. How much have the currently online sensors changed since the last complete reading?
+            const lastSubAvg = this._getAverage(_cache.lastCompleteReading.sample, current.sensorsOnline);
+            const currentSubAvg = this._getAverage(current.sample, current.sensorsOnline);
+            const shift = currentSubAvg - lastSubAvg;
+
+            // 2. Synthesize a complete set of temperatures
+            const synthesizedTemps = [...current.sensorsOnline.map((k) => current.sample[k])];
+
+            for (const key of offlineKeys) {
+                const historicalVal = _cache.lastCompleteReading.sample[key];
+                const extrapolatedVal = historicalVal + shift;
+                synthesizedTemps.push(extrapolatedVal);
             }
 
-            log.debug(`allAvailableSensorsLastAverage: ${last.average}, allAvailableSensorsCurrentAverage: ${current.average}`, logLevel);
-            log.debug(`unchangedSensorsLastAverage: ${lastUnchangedAvg}, unchangedSensorsCurrentAverage: ${currentUnchangedAvg}`, logLevel);
-            log.debug(`currentOffset: ${current.offset}`);
+            current.average = synthesizedTemps.reduce((a, b) => a + b, 0) / synthesizedTemps.length;
+            current.offset = shift;
+
+            log.debug(
+                `Extrapolated average using ${onlineCount} online and ${offlineKeys.length} offline sensors (Shift: ${shift.toFixed(2)}°C)`, logLevel
+            );
+        } else {
+            // Fallback: No baseline or all offline
+            current.average = this._getAverage(current.sample, current.sensorsOnline);
         }
 
         // If all expected sensors are online, preserve this as the last complete reading
@@ -122,21 +145,27 @@ cacheManager.init();
 export const run = async (deviceId, db, config) => {
     cacheManager.rotate();
 
+    const minTemp = config.minAllowedTemp ?? -50;
+    const maxTemp = config.maxAllowedTemp ?? 100;
+
     for (const logicalDeviceKey in sourceMap) {
         const key = sourceMap[logicalDeviceKey];
         const logicalDevice = getDeviceByKey(logicalDeviceKey);
         if (logicalDevice) {
             const latestData = await logicalDevice.getData();
             let liveTemp = latestData && typeof latestData[key] === "number" ? latestData[key] : null;
+
+            // Apply guardrails to filter out impossible sensor readings
+            if (liveTemp !== null && (liveTemp < minTemp || liveTemp > maxTemp)) {
+                log.warn(`Sensor ${logicalDeviceKey} reported an outlier: ${liveTemp}°C. Range allowed is [${minTemp}, ${maxTemp}]. Ignoring.`, logLevel);
+                liveTemp = null;
+            }
+
             cacheManager.record(logicalDeviceKey, liveTemp);
         }
     }
 
     cacheManager.finalize();
-    console.log('-------- RUN');
-
-    console.log("cache");
-    console.log(_cache);
 
     const data = [
         {

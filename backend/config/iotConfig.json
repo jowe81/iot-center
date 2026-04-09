@@ -381,7 +381,7 @@
                 }
             },
             "plugin": "aggregates",
-            "interval": 20000
+            "interval": 60000
         },
         "laundryRoom_legacy": {
             "meta": {

@@ -79,7 +79,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     
     // Thresholds (Slope in deg/min, Drops in %)
     const RISE_SLOPE_THRESHOLD = options.riseThreshold || 0.15;
-    const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.2;
+    const DROP_SLOPE_THRESHOLD = options.dropThreshold || -0.15;
     const RELATIVE_DROP_REFUEL = options.relativeDropRefuel || 0.10; // 10% drop from peak
     const REFUEL_RECOVERY_DERIVATIVE = options.refuelRecoveryDerivative || 0.07;
     const RUNNING_TEMP_THRESHOLD = options.runningTempThreshold || 35;
@@ -335,7 +335,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 newState = "refuel";
                 log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
                 if (tempHasDroppedSignificantlyFromPeak) { 
-                    log.debug(`  - Temp dropped from peak: ${currentTemp.toFixed(2)} < ${(maxTemp * (1 - effectiveRelativeDrop)).toFixed(2)}`, logLevel);
+                    const threshold = maxTemp * (1 - effectiveRelativeDrop);
+                    log.debug(`  - Temp dropped from peak: ${currentTemp.toFixed(2)} < ${threshold.toFixed(2)} (${(effectiveRelativeDrop * 100).toFixed(0)}% drop from ${maxTemp.toFixed(2)})`, logLevel);
                 }
                 if (tempIsFalling) {
                     log.debug(`  - Temp falling at minimum rate: ${slope.toFixed(2)} <= ${DROP_SLOPE_THRESHOLD}`, logLevel);
