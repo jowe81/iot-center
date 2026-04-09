@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
 const logicalDevices = new Map();
 
-const logLevel = iotConfig.system?.logicalDeviceManager?.log;
+const managerConfig = iotConfig.system?.logicalDeviceManager || {};
 export const getDeviceByKey = (deviceKey) => {
     if (!deviceKey) {
         return null;
@@ -35,13 +35,13 @@ export const updateOrCreateDevice = async (deviceKey, data) => {
         let newDevice;
         switch (driver) {
             case 'iot':
-                newDevice = new LogicalIotDevice(deviceKey, data, logLevel);
+                newDevice = new LogicalIotDevice(deviceKey, data, managerConfig);
                 break;
             case 'kasa':
-                newDevice = new LogicalKasaDevice(deviceKey, data, logLevel);
+                newDevice = new LogicalKasaDevice(deviceKey, data, managerConfig);
                 break;
             default:
-                newDevice = new LogicalDevice(deviceKey, data, logLevel);
+                newDevice = new LogicalDevice(deviceKey, data, managerConfig);
                 break;
         }
         

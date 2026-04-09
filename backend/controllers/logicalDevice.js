@@ -12,9 +12,9 @@ class LogicalDevice {
      * Every logical device is created from a deviceKey.
      * @param {string} deviceKey The unique key for the device.
      * @param {object} data The initial data object for the device.
-     * @param {string} logLevel The logging level.
+     * @param {object} config The manager configuration object.
      */
-    constructor(deviceKey, data, logLevel) {
+    constructor(deviceKey, data, config) {
         const parts = deviceKey.split('.');
         this.driver = parts[0];
         this.deviceId = parts[1];
@@ -22,9 +22,10 @@ class LogicalDevice {
         this.deviceKey = deviceKey;
         this.lastSeen = new Date();
         this.data = data;
-        this.logLevel = logLevel;
+        this.config = config || {};
+        this.logLevel = this.config.log;
 
-        log.info(`${LOG_TAG} Created new logical device: ${this.deviceKey}`, logLevel);
+        log.info(`${LOG_TAG} Created new logical device: ${this.deviceKey}`, this.logLevel);
     }
 
     getKey() {

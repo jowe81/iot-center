@@ -491,15 +491,25 @@ const _getAllDeviceStatusesData = async () => {
         const deviceCollections = collections.filter(c => c.name.startsWith('device_'));
 
         const statusPromises = deviceCollections.map(async (c) => {
-            const deviceId = c.name.replace('device_', '');
+            const deviceId = c.name.replace("device_", "");
             const collection = db.collection(c.name);
-            const lastDoc = await collection.findOne({}, { sort: { receivedAt: -1 }, projection: { receivedAt: 1, 'data.System.DataExchanger': 1 } });
+            const lastDoc = await collection.findOne(
+                {},
+                { sort: { receivedAt: -1 }, projection: { receivedAt: 1, protocol: 1, "data.System.DataExchanger": 1 } },
+            );
 
             const config = iotConfig.devices?.[deviceId];
             const name = config?.meta?.name || deviceId;
 
             let interval = null;
-            if (lastDoc?.data?.System?.DataExchanger) {
+            let protocol = lastDoc ? lastDoc.protocol : null;
+
+            // For virtual devices, get the interval from their configuration
+            if (config?.network?.virtual === true) {
+                interval = config.interval;
+                protocol = 'virtual';
+            } else if (lastDoc?.data?.System?.DataExchanger) {
+                // For physical devices, get from reported data
                 const exchangers = lastDoc.data.System.DataExchanger;
                 const keys = Object.keys(exchangers);
                 if (keys.length > 0 && exchangers[keys[0]].interval) {
@@ -511,7 +521,8 @@ const _getAllDeviceStatusesData = async () => {
                 deviceId,
                 name,
                 lastSeen: lastDoc ? lastDoc.receivedAt : null,
-                interval
+                protocol,
+                interval,
             };
         });
 

@@ -8,8 +8,8 @@ const LOG_TAG = '[LogicalDevice]';
  * This type of logical device is a Kasa smart plug and its commands are issued in a special way.
  */
 export class LogicalKasaDevice extends LogicalDevice {
-    constructor(deviceKey, data, logLevel) {
-        super(deviceKey, data, logLevel);
+    constructor(deviceKey, data, config) {
+        super(deviceKey, data, config);
         this.device = data.device;
     }
 

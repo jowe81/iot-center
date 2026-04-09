@@ -27,7 +27,8 @@
             "libraryLogger": false
         },
         "logicalDeviceManager": {
-            "log": "info"
+            "log": "info",
+            "staleDataThreshold": 180000
         }
     },
     "actions": [
@@ -88,7 +89,7 @@
         },
         {
             "name": "Humidistat Office Johannes",
-            "enabled": true,
+            "enabled": false,
             "plugin": "humidistat",
             "trigger": {
                 "type": "data"
@@ -140,11 +141,13 @@
                 "livingroom_01.Sensor.SHT31.shtSensor.tempC",
                 "office_johannes_01.Sensor.SHT31.shtSensor.tempC",
                 "kitchen_01.Sensor.DS18B20.tempKitchen.tempC",
+                "laundryRoom_legacy.Sensor.DS18B20.laundryRoom.tempC",
                 "recroom_01.Sensor.SHT31.shtSensor.tempC",
                 "recroom_01.Sensor.DS18B20.woodstove.tempC",
                 "woodshed_01.Sensor.DS18B20.tempOutside.tempC",
                 "woodshed_01.Sensor.DS18B20.battery.tempC",
-                "woodshed_01.Sensor.BME280.controlBox.temperature"
+                "woodshed_01.Sensor.BME280.controlBox.temperature",
+                "laundryRoom_legacy.Sensor.DS18B20.crawlSpace.tempC"
             ]
         }
     ],
@@ -378,7 +381,7 @@
                 }
             },
             "plugin": "aggregates",
-            "interval": 60000
+            "interval": 20000
         },
         "laundryRoom_legacy": {
             "meta": {
@@ -393,7 +396,7 @@
                 }
             },
             "plugin": "ESP8266LegacyDevice",
-            "interval": 10000
+            "interval": 60000
         },
         "woodshed_01": {
             "meta": {

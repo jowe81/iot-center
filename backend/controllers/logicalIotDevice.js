@@ -8,8 +8,8 @@ import { addCommand } from './commandService.js';
  * This type of logical device is an ESP8266/ESP32 and sends its info via MQTT/HTTP
  */
 export class LogicalIotDevice extends LogicalDevice {
-    constructor(deviceKey, data, logLevel) {
-        super(deviceKey, data, logLevel);
+    constructor(deviceKey, data, config) {
+        super(deviceKey, data, config);
         this._cachedData = null;
         this._cachedReceivedAt = null;
         this._lastDbFetchAttempt = 0;
@@ -49,43 +49,57 @@ export class LogicalIotDevice extends LogicalDevice {
     async getData() {
         const THROTTLE_MS = 60000; // 1 minute
         const now = Date.now();
+        const staleThreshold = this.config.staleDataThreshold || 300000; // Default to 5 minutes
+
+        const isStale = (timestamp) => timestamp && (now - timestamp.getTime() > staleThreshold);
 
         // 1. Throttle check: Only query if at least a minute has passed since the last attempt
         if (now - this._lastDbFetchAttempt < THROTTLE_MS) {
-            return this._cachedData;
+            return isStale(this._cachedReceivedAt) ? null : this._cachedData;
         }
 
         this._lastDbFetchAttempt = now;
 
-        const db = getDb();
-        const collection = db.collection(`device_${this.deviceId}`);
+        try {
+            const db = getDb();
+            const collection = db.collection(`device_${this.deviceId}`);
 
-        // 2. Build query to only pull if there's a newer entry than the one in memory
-        const query = this._cachedReceivedAt ? { receivedAt: { $gt: this._cachedReceivedAt } } : {};
+            // 2. Build query to only pull if there's a newer entry than the one in memory
+            const query = this._cachedReceivedAt ? { receivedAt: { $gt: this._cachedReceivedAt } } : {};
 
-        const latestDoc = await collection.findOne(
-            query,
-            { sort: { receivedAt: -1 }, projection: { data: 1, receivedAt: 1 } }
-        );
+            const latestDoc = await collection.findOne(
+                query,
+                { sort: { receivedAt: -1 }, projection: { data: 1, receivedAt: 1 } }
+            );
 
-        if (latestDoc && latestDoc.data) {
-            let foundData = null;
-            // Iterate through types and subtypes to find the data for this subDeviceName
-            outer: for (const typeKey in latestDoc.data) {
-                for (const subtypeKey in latestDoc.data[typeKey]) {
-                    if (latestDoc.data[typeKey][subtypeKey][this.subDeviceName]) {
-                        foundData = latestDoc.data[typeKey][subtypeKey][this.subDeviceName];
-                        break outer;
+            if (latestDoc) {
+                if (isStale(latestDoc.receivedAt)) {
+                    return null;
+                }
+
+                if (latestDoc.data) {
+                    let foundData = null;
+                    // Iterate through types and subtypes to find the data for this subDeviceName
+                    outer: for (const typeKey in latestDoc.data) {
+                        for (const subtypeKey in latestDoc.data[typeKey]) {
+                            if (latestDoc.data[typeKey][subtypeKey][this.subDeviceName]) {
+                                foundData = latestDoc.data[typeKey][subtypeKey][this.subDeviceName];
+                                break outer;
+                            }
+                        }
+                    }
+                    
+                    if (foundData) {
+                        this._cachedData = foundData;
+                        this._cachedReceivedAt = latestDoc.receivedAt;
                     }
                 }
             }
-            
-            if (foundData) {
-                this._cachedData = foundData;
-                this._cachedReceivedAt = latestDoc.receivedAt;
-            }
+        } catch (error) {
+            log.error(`Error fetching data for logical device ${this.deviceKey}:`, error, this.logLevel);
         }
-        return this._cachedData;
+
+        return isStale(this._cachedReceivedAt) ? null : this._cachedData;
     }
 
     async updateConfig() {

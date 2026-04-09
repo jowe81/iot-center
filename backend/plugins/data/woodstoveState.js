@@ -62,7 +62,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     log.debug(`${LOG_TAG} currentTemp=${currentTemp}, previousState=${previousState}`, logLevel);
 
     // Configuration
-    const HISTORY_MINUTES = options.historyMinutes || 75;
+    const HISTORY_MINUTES = options.historyMinutes || 150;
     const SLOPE_WINDOW_MINUTES = options.slopeWindowMinutes || 10;
     let AMBIENT_TEMP = options.ambientTemp || 22;
 
@@ -104,8 +104,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             },
             {
                 sort: { receivedAt: -1 },
-                // Limit to a reasonable number, e.g., ~15 minutes of data if records are every 5s.
-                limit: 500, 
+                // Increased limit to ensure full history window is captured on startup
+                limit: 2000, 
                 projection: { receivedAt: 1, [`data.${tempKey}`]: 1, [`data.${outputKey}`]: 1 }
             }
         ).toArray();
@@ -176,19 +176,81 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     options._derivBuffer = derivBuffer;
     const slopeDerivative = derivBuffer.reduce((a, b) => a + b, 0) / derivBuffer.length;
 
-    // Calculate Max Temp and time since peak in the history window
+    // Calculate Max Temp and time since peak in the history window.
+    // We scan backwards to find the most recent "summit" that has since dropped at least 3 degrees.
     let peakPoint = points[0];
-    for (const p of points) {
-        // Use >= to find the most recent peak if values are identical
-        if (p.val >= peakPoint.val) {
-            peakPoint = p;
+    let peakHasOccurred = false;
+    let timeSincePeakMs = 0;
+
+    let minObservedAfter = points[points.length - 1].val;
+    for (let i = points.length - 1; i >= 0; i--) {
+        const p = points[i];
+        if (p.val < minObservedAfter) minObservedAfter = p.val;
+
+        if (p.val - minObservedAfter >= 3) {
+            // Found the most recent point that is 3 degrees higher than something that follows it.
+            // Search backwards to find the local summit of this specific hump.
+            let summitIdx = i;
+            for (let j = i - 1; j >= 0; j--) {
+                if (points[j].val >= points[summitIdx].val) summitIdx = j;
+                else break;
+            }
+            peakPoint = points[summitIdx];
+            peakHasOccurred = true;
+            break;
         }
     }
-    
-    const maxTemp = peakPoint.val;
-    const timeSincePeakMs = Date.now() - peakPoint.time;
 
-    log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, derivative=${slopeDerivative.toFixed(4)}, maxTemp=${maxTemp.toFixed(2)}, currentTemp=${currentTemp}, timeSincePeak=${(timeSincePeakMs / 60000).toFixed(1)}m`, logLevel);
+    // Fallback: If no confirmed peak exists, use the global max for maxTemp calculation
+    // but ensure timeSincePeakMs remains 0 per requirements.
+    if (!peakHasOccurred) {
+        let absoluteMax = points[0];
+        for (const p of points) {
+            if (p.val >= absoluteMax.val) absoluteMax = p;
+        }
+        peakPoint = absoluteMax;
+    } else {
+        timeSincePeakMs = Date.now() - peakPoint.time;
+    }
+
+    const maxTemp = peakPoint.val;
+
+    // Calculate most recent "dip" (lowest point followed by at least a 3-degree rise)
+    let dipPoint = points[0];
+    let dipHasOccurred = false;
+    let timeSinceDipMs = 0;
+
+    let maxObservedAfter = points[points.length - 1].val;
+    for (let i = points.length - 1; i >= 0; i--) {
+        const p = points[i];
+        if (p.val > maxObservedAfter) maxObservedAfter = p.val;
+
+        if (maxObservedAfter - p.val >= 3) {
+            let troughIdx = i;
+            for (let j = i - 1; j >= 0; j--) {
+                if (points[j].val <= points[troughIdx].val) troughIdx = j;
+                else break;
+            }
+            dipPoint = points[troughIdx];
+            dipHasOccurred = true;
+            break;
+        }
+    }
+
+    if (!dipHasOccurred) {
+        let absoluteMin = points[0];
+        for (const p of points) {
+            if (p.val <= absoluteMin.val) absoluteMin = p;
+        }
+        dipPoint = absoluteMin;
+    } else {
+        timeSinceDipMs = Date.now() - dipPoint.time;
+    }
+
+    const minTemp = dipPoint.val;
+    const timeSinceDipMinutes = timeSinceDipMs / 60000;
+
+    log.debug(`${LOG_TAG} slope=${slope.toFixed(2)}, derivative=${slopeDerivative.toFixed(4)}, maxTemp=${maxTemp.toFixed(2)}, minTemp=${minTemp.toFixed(2)}, currentTemp=${currentTemp}, timeSincePeak=${(timeSincePeakMs / 60000).toFixed(1)}m, timeSinceDip=${timeSinceDipMinutes.toFixed(1)}m, peakOccurred=${peakHasOccurred}, dipOccurred=${dipHasOccurred}`, logLevel);
 
     const tempIsRising = slope > RISE_SLOPE_THRESHOLD;
     const tempIsFalling = slope < DROP_SLOPE_THRESHOLD;
@@ -258,14 +320,17 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             const isLockedOut = minutesSinceRunning < REFUEL_LOCKOUT_MINUTES;
 
             const timeSincePeakMinutes = timeSincePeakMs / 60000;
+            const slopeIsZero = Math.abs(slope) < 0.01;
 
             // Condition: Significant relative drop from the peak temp AND temp is dropping AND the drop is accelerating,
             // OR temp has fallen below running threshold,
-            // OR it has been more than 60 minutes since the temperature peak.
+            // OR it has been more than 60 minutes since the last temperature peak,
+            // OR no peak occurred and the slope has stalled at zero.
             if (!isLockedOut && (
                 (tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || 
                 !tempIsAboveRunningThreshold || 
-                timeSincePeakMinutes > 60
+                (timeSincePeakMinutes > 60 && timeSinceDipMinutes > timeSincePeakMinutes && tempIsFalling) ||
+                (!peakHasOccurred && slopeIsZero)
             )) {
                 newState = "refuel";
                 log.debug(`${LOG_TAG} Transition from running to refuel triggered. Reasons:`, logLevel);
@@ -281,8 +346,11 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 if (!tempIsAboveRunningThreshold) {
                     log.debug(`  - Temp has fallen below running threshold: ${currentTemp.toFixed(2)} < ${RUNNING_TEMP_THRESHOLD}`, logLevel);
                 }
-                if (timeSincePeakMinutes > 60) {
+                if (timeSincePeakMinutes > 60 && timeSinceDipMinutes > timeSincePeakMinutes && tempIsFalling) {
                     log.debug(`  - Time since peak is > 60m: ${timeSincePeakMinutes.toFixed(1)}m`, logLevel);
+                }
+                if (!peakHasOccurred && slopeIsZero) {
+                    log.debug(`  - No peak occurred and slope hit zero (stalled fire)`, logLevel);
                 }
             } else if (isLockedOut && ((tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || !tempIsAboveRunningThreshold)) {
                 log.debug(`${LOG_TAG} Transition to refuel suppressed by lockout (${minutesSinceRunning.toFixed(1)}m < ${REFUEL_LOCKOUT_MINUTES}m)`, logLevel);

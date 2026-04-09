@@ -59,7 +59,7 @@ export const initVirtualDeviceService = () => {
     for (const [deviceId, config] of Object.entries(devices)) {
         if (config.network?.virtual === true) {
             const pluginName = config.plugin;
-            const interval = config.network.interval || 60000;
+            const interval = config.interval || 60000;
 
             if (!pluginName) {
                 log.warn(`${LOG_TAG} Virtual device "${deviceId}" has no plugin defined.`);

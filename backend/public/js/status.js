@@ -34,15 +34,17 @@ function renderStatusRow(status) {
         row.appendChild(document.createElement('td'));
         row.appendChild(document.createElement('td'));
         row.appendChild(document.createElement('td'));
+        row.appendChild(document.createElement('td'));
         tbody.appendChild(row);
     }
 
     // Update cells
     const nameCell = row.children[0];
     const idCell = row.children[1];
-    const timeCell = row.children[2];
-    const agoCell = row.children[3];
-    const statusCell = row.children[4];
+    const protocolCell = row.children[2];
+    const timeCell = row.children[3];
+    const agoCell = row.children[4];
+    const statusCell = row.children[5];
 
     // Name Cell (Badge)
     const nameLink = nameCell.querySelector('.device-badge') || document.createElement('a');
@@ -53,6 +55,9 @@ function renderStatusRow(status) {
 
     // ID Cell
     idCell.textContent = status.deviceId;
+
+    // Protocol Cell
+    protocolCell.textContent = status.protocol ? status.protocol.toUpperCase() : '-';
 
     // Last Seen and Ago
     if (status.lastSeen) {
@@ -69,7 +74,7 @@ function renderStatusRow(status) {
     indicator.classList.remove('status-ok', 'status-warn', 'status-crit', 'status-unknown');
     if (status.lastSeen && status.interval) {
         const diff = Date.now() - new Date(status.lastSeen).getTime();
-        if (diff <= status.interval) indicator.classList.add('status-ok');
+        if (diff < 60000 || diff <= status.interval) indicator.classList.add('status-ok');
         else if (diff <= status.interval * 2) indicator.classList.add('status-warn');
         else indicator.classList.add('status-crit');
     } else {
