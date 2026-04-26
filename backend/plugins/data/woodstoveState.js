@@ -144,6 +144,18 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     // Persist for next run
     options._points = points;
 
+    // Calculate temperature increase over the past 5 minutes
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const fiveMinutesAgoTimestamp = Date.now() - FIVE_MINUTES_MS;
+    let tempFiveMinutesAgo = null;
+    for (let i = points.length - 1; i >= 0; i--) {
+        if (points[i].time <= fiveMinutesAgoTimestamp) {
+            tempFiveMinutesAgo = points[i].val;
+            break;
+        }
+    }
+    const tempIncreasedSignificantly = tempFiveMinutesAgo !== null && (currentTemp - tempFiveMinutesAgo) > 0.5;
+
     // Calculate Slope (Linear Regression over last SLOPE_WINDOW_MINUTES)
     const slopeWindowMs = SLOPE_WINDOW_MINUTES * 60 * 1000;
     const rawSlope = calculateLinearRegressionSlope(points, slopeWindowMs, Date.now());
@@ -281,8 +293,8 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
     switch (previousState) {
         case "off": 
             // Only transition to 'warmup' is allowed.
-            // Condition: Temp is rising and above ambient.
-            if (tempIsSignificantlyAboveAmbient && tempIsRising) {
+            // Condition: Temp is rising and above ambient, or above running, or a rapid 5-minute rise detected.
+            if ((tempIsSignificantlyAboveAmbient && tempIsRising) || tempIsAboveRunningThreshold || tempIncreasedSignificantly) {
                 newState = "warmup";
                 log.debug(`${LOG_TAG} Transition from off to warmup triggered. Reasons:`, logLevel);
                 if (tempIsSignificantlyAboveAmbient) {
@@ -290,6 +302,9 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
                 if (tempIsRising) {
                     log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                }
+                if (tempIncreasedSignificantly) {
+                    log.debug(`  - Temp increased by > 0.5°C in 5m: ${(currentTemp - tempFiveMinutesAgo).toFixed(2)}`, logLevel);
                 }
             }
             break;
@@ -304,7 +319,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
                 }
                 if (tempIsRising) {
                     log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
-                }
+                }                
             }
             // To 'cooldown': Temp is dropping (fire went out).
             else if (!tempIsAboveRunningThreshold && !tempIsRising) {

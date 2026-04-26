@@ -107,6 +107,28 @@
                 "tankEmptyThreshold": 50,
                 "tankRefillThreshold": 45
             }
+        },
+        {
+            "name": "Furnace Thermostat",
+            "enabled": true,
+            "plugin": "thermostat",
+            "trigger": {
+                "type": "data"
+            },
+            "options": {
+                "log": "debug",
+                "sourceDevice": "aggregates",
+                "sourceKey": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC",
+                "targetDevice": "furnace_closet_01",
+                "targetSubDevice": "furnace",
+                "hysteresis": 0.3,
+                "pushCommand": "always",
+                "targetTemp1": 22.7,
+                "activationTime1": "07:00",
+                "targetTemp2": 20,
+                "activationTime2": "22:30",
+                "currentTargetTemp": 22.5
+            }
         }
     ],
     "dashboards": [
@@ -138,6 +160,7 @@
             "id": "dash_1771965639691",
             "name": "Temperatures",
             "metrics": [
+                "aggregates.Sensor.aggregateTemp.spatialAverageInside.tempC",
                 "livingroom_01.Sensor.SHT31.shtSensor.tempC",
                 "office_johannes_01.Sensor.SHT31.shtSensor.tempC",
                 "kitchen_01.Sensor.DS18B20.tempKitchen.tempC",
@@ -377,7 +400,9 @@
             "data": {
                 "Sensor.aggregateTemp": {
                     "tempC": true,
-                    "sensors": true
+                    "sensors": true,
+                    "samples": true,
+                    "windowMs": true
                 }
             },
             "plugin": "aggregates",
@@ -665,6 +690,37 @@
                     "autoOffTimer": true,
                     "fadeDuration": true,
                     "frequency": true
+                }
+            }
+        },
+        "furnace_closet_01": {
+            "meta": {
+                "name": "Furnace Closet"
+            },
+            "network": {
+                "protocol": [
+                    "mqtt",
+                    "http"
+                ]
+            },
+            "data": {
+                "System.SystemMonitor": {
+                    "largestBlock": true,
+                    "uptime": true,
+                    "loopDelay": true
+                },
+                "System.DataExchanger": {
+                    "interval": true,
+                    "trigger": true
+                },
+                "Sensor.DS18B20": {
+                    "tempC": true,
+                    "tempCOffset": true
+                },
+                "DeviceControl.Relay": {
+                    "autoOffRemaining": true,
+                    "isOn": true,
+                    "autoOffTimer": true
                 }
             }
         }

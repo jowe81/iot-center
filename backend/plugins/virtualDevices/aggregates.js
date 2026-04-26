@@ -30,6 +30,7 @@ const _cache = {
     lastCompleteReading: createReading(),
     lastReading: createReading(),
     currentReading: createReading(),
+    history: [],
 };
 
 const cacheManager = {
@@ -167,6 +168,20 @@ export const run = async (deviceId, db, config) => {
 
     cacheManager.finalize();
 
+    // Calculate Rolling Average
+    const now = Date.now();
+    const windowMs = config.rollingWindowMS ?? 300000; // Default 5 minutes
+
+    if (_cache.currentReading.average !== null) {
+        _cache.history.push({ ts: now, val: _cache.currentReading.average });
+    }
+    // Remove samples older than the window
+    _cache.history = _cache.history.filter(h => now - h.ts <= windowMs);
+
+    const rollingAvg = _cache.history.length > 0
+        ? _cache.history.reduce((sum, h) => sum + h.val, 0) / _cache.history.length
+        : null;
+
     const data = [
         {
             type: "System",
@@ -180,6 +195,14 @@ export const run = async (deviceId, db, config) => {
             name: "spatialAverageInside",
             tempC: _cache.currentReading.average,
             sensors: _cache.currentReading.sensorsOnline.length,
+        },
+        {
+            type: "Sensor",
+            subtype: "aggregateTemp",
+            name: "spatialAverageInsideRolling",
+            tempC: rollingAvg,
+            windowMs: windowMs,
+            samples: _cache.history.length,
         },
     ];
 

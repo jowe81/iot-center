@@ -637,7 +637,9 @@
         "hardwareName": "spatialAverageInside",
         "metrics": [
             "tempC",
-            "sensors"
+            "sensors",
+            "samples",
+            "windowMs"
         ]
     },
     "iot.laundryRoom_legacy.crawlSpace": {
@@ -660,6 +662,83 @@
         "hardwareName": "laundryRoom",
         "metrics": [
             "tempC"
+        ]
+    },
+    "iot.aggregates.spatialAverageInsideRolling": {
+        "name": "spatialAverageInsideRolling",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "aggregateTemp",
+        "hardwareName": "spatialAverageInsideRolling",
+        "metrics": [
+            "tempC",
+            "sensors",
+            "samples",
+            "windowMs"
+        ]
+    },
+    "iot.furnace_closet_01.dataExchanger": {
+        "name": "dataExchanger",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "DataExchanger",
+        "hardwareName": "dataExchanger",
+        "metrics": [
+            "interval",
+            "trigger"
+        ]
+    },
+    "iot.furnace_closet_01.systemMonitor": {
+        "name": "systemMonitor",
+        "aliases": [],
+        "driver": "iot",
+        "category": "unknown",
+        "type": "SystemMonitor",
+        "hardwareName": "systemMonitor",
+        "metrics": [
+            "largestBlock",
+            "uptime",
+            "loopDelay"
+        ]
+    },
+    "iot.furnace_closet_01.furnace": {
+        "name": "furnace",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "furnace",
+        "metrics": [
+            "isOn",
+            "autoOffRemaining",
+            "autoOffTimer"
+        ]
+    },
+    "iot.furnace_closet_01.recroom": {
+        "name": "recroom",
+        "aliases": [],
+        "driver": "iot",
+        "category": "sensor",
+        "type": "DS18B20",
+        "hardwareName": "recroom",
+        "metrics": [
+            "tempC",
+            "tempCOffset"
+        ]
+    },
+    "iot.furnace_closet_01.fan": {
+        "name": "fan",
+        "aliases": [],
+        "driver": "iot",
+        "category": "power",
+        "type": "Relay",
+        "hardwareName": "fan",
+        "metrics": [
+            "autoOffRemaining",
+            "isOn",
+            "autoOffTimer"
         ]
     }
 }
