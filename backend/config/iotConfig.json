@@ -121,13 +121,13 @@
                 "sourceKey": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC",
                 "targetDevice": "furnace_closet_01",
                 "targetSubDevice": "furnace",
-                "hysteresis": 0.3,
+                "hysteresis": 0.1,
                 "pushCommand": "always",
                 "targetTemp1": 22.7,
-                "activationTime1": "07:00",
-                "targetTemp2": 20,
-                "activationTime2": "22:30",
-                "currentTargetTemp": 22.5
+                "activationTime1": "06:30",
+                "targetTemp2": 21.2,
+                "activationTime2": "21:00",
+                "currentTargetTemp": 21.2
             }
         }
     ],

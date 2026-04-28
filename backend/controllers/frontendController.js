@@ -309,6 +309,9 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
                 case "24h":
                     startTime.setHours(now.getHours() - 24);
                     break;
+                case "48h":
+                    startTime.setHours(now.getHours() - 48);
+                    break;
                 case "7d":
                     startTime.setDate(now.getDate() - 7);
                     break;
