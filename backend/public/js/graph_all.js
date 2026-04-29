@@ -17,6 +17,7 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 
 let chart;
 let deviceConfigs = {};
+fieldSelect.disabled = true;
 
 const ws = new WebSocket(`ws://${window.location.host}`);
 let allFieldOptions = [];
@@ -114,7 +115,6 @@ async function loadAllKeys() {
             value: opt.value,
             text: opt.text
         }));
-        fieldSelect.disabled = false;
 
         // Restore state from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -128,8 +128,10 @@ async function loadAllKeys() {
             Array.from(fieldSelect.options).forEach(opt => {
                 if (fields.includes(opt.value)) opt.selected = true;
             });
-            updateChart();
         }
+
+        fieldSelect.disabled = false;
+        updateChart();
 
     } catch (err) {
         console.error('Failed to load keys', err);
@@ -138,6 +140,8 @@ async function loadAllKeys() {
 
 // Fetch Data and Update Chart
 function updateChart() {
+    if (fieldSelect.disabled) return;
+
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
 
     // Update URL parameters

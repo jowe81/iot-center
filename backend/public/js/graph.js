@@ -20,6 +20,7 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 
 let chart;
 let currentDeviceConfig = {};
+fieldSelect.disabled = true;
 
 let allFieldOptions = [];
 const ws = new WebSocket(`ws://${window.location.host}`);
@@ -101,11 +102,11 @@ async function loadDevices() {
                 Array.from(fieldSelect.options).forEach(opt => {
                     if (fields.includes(opt.value)) opt.selected = true;
                 });
-                updateChart();
             }
 
             deviceSelect.parentElement.classList.add('hidden');
             if (backLink) backLink.href = `manager.html?deviceId=${deviceId}`;
+            updateChart();
         }
     } catch (err) {
         console.error('Failed to load devices', err);
@@ -156,6 +157,8 @@ async function loadKeys(deviceId) {
 
 // Fetch Data and Update Chart
 async function updateChart() {
+    if (fieldSelect.disabled) return;
+
     const deviceId = deviceSelect.value;
     const selectedOptions = Array.from(fieldSelect.selectedOptions).map(opt => opt.value);
     // Update URL parameters
