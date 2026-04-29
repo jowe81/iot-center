@@ -296,6 +296,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             // Condition: Temp is rising and above ambient, or above running, or a rapid 5-minute rise detected.
             if ((tempIsSignificantlyAboveAmbient && tempIsRising) || tempIsAboveRunningThreshold || tempIncreasedSignificantly) {
                 newState = "warmup";
+                options._lastWarmupStartTime = Date.now();
                 log.debug(`${LOG_TAG} Transition from off to warmup triggered. Reasons:`, logLevel);
                 if (tempIsSignificantlyAboveAmbient) {
                     log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
@@ -323,7 +324,14 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             }
             // To 'cooldown': Temp is dropping (fire went out).
             else if (!tempIsAboveRunningThreshold && !tempIsRising) {
-                newState = "cooldown";
+                const WARMUP_LOCKOUT_MINUTES = options.warmupLockoutMinutes ?? 15;
+                const minutesSinceWarmupStart = (Date.now() - (options._lastWarmupStartTime || 0)) / 60000;
+
+                if (minutesSinceWarmupStart < WARMUP_LOCKOUT_MINUTES) {
+                    log.debug(`${LOG_TAG} Transition from warmup to cooldown suppressed by lockout (${minutesSinceWarmupStart.toFixed(1)}m < ${WARMUP_LOCKOUT_MINUTES}m)`, logLevel);
+                } else {
+                    newState = "cooldown";
+                }
             }
             break;
 

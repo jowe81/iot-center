@@ -92,4 +92,12 @@ export const detectPlateauAtTime = (data, vKey, tKey, cutoffTimestamp = null, wi
         vHistory,
         
     };
-}
+};
+
+/**
+ * Finds a transformer configuration for a specific device and data key.
+ */
+export const getGraphTransformerConfig = (config, deviceId, dataKey) => {
+    if (!config || !config.graphing_transformers) return null;
+    return config.graphing_transformers.find(t => t.deviceId === deviceId && t.dataKey === dataKey);
+};

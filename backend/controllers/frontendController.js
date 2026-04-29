@@ -3,9 +3,10 @@ import { getDb } from '../config/db.js';
 import log from '../utils/logger.js';
 import { saveConfig } from '../utils/configUtils.js';
 import { addCommand } from './commandService.js';
-import { detectPlateauAtTime, getValue } from '../utils/dataUtils.js';
+import { detectPlateauAtTime, getValue, getGraphTransformerConfig } from '../utils/dataUtils.js';
 import { getRawData } from '../utils/rawDataStore.js';
 import { reloadActions } from './actionService.js';
+import * as graphingTransformers from '../plugins/graphingTransformers.js';
 
 const require = createRequire(import.meta.url);
 const iotConfig = require('../config/iotConfig.json');
@@ -378,13 +379,25 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
         const targetPoints = 1000; // About the max display width of the graph in pixels.
 
         // Pre-calculate paths for efficiency
-        const fieldPaths = fieldsToFetch.map(f => ({ field: f, path: f.split('.') }));
+        const fieldPaths = fieldsToFetch.map(f => {
+            const cleanKey = f.startsWith('data.') ? f.substring(5) : f;
+            const transformerConfig = getGraphTransformerConfig(iotConfig, deviceId, cleanKey);
+            const transformFnName = transformerConfig ? transformerConfig.transformerFn : null;
+            const transformFn = transformFnName ? graphingTransformers[transformFnName] : null;
+
+            return { 
+                field: f, 
+                path: f.split('.'),
+                transformFn: typeof transformFn === 'function' ? transformFn : null
+            };
+        });
+
         const fieldBuffers = {};
         fieldsToFetch.forEach(f => fieldBuffers[f] = []);
 
         // Single pass extraction to avoid iterating large dataset multiple times
         for (const doc of data) {
-            for (const { field, path } of fieldPaths) {
+            for (const { field, path, transformFn } of fieldPaths) {
                 let value = doc;
                 for (const key of path) {
                     if (value && value[key] !== undefined) {
@@ -395,6 +408,9 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
                     }
                 }
                 if (value !== undefined && value !== null) {
+                    if (transformFn) {
+                        value = transformFn(value);
+                    }
                     fieldBuffers[field].push({ x: doc.receivedAt, y: value });
                 }
             }

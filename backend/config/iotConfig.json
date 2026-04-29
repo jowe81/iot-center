@@ -389,6 +389,13 @@
             ]
         }
     ],
+    "graphing_transformers": [
+        {
+            "deviceId": "furnace_closet_01",
+            "dataKey": "DeviceControl.Relay.furnace.isOn",
+            "transformerFn": "furnaceOnOff"
+        }
+    ],
     "devices": {
         "aggregates": {
             "meta": {
