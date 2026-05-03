@@ -121,13 +121,16 @@
                 "sourceKey": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC",
                 "targetDevice": "furnace_closet_01",
                 "targetSubDevice": "furnace",
+                "currentTargetTemp": 21.7,
+                "setpoint1Time": "06:30",
+                "setpoint1Temp": 21.7,
+                "setpoint2Time": "21:00",
+                "setpoint2Temp": 20.7,
                 "hysteresis": 0.1,
                 "pushCommand": "always",
-                "targetTemp1": 22.7,
-                "activationTime1": "06:30",
-                "targetTemp2": 21.2,
-                "activationTime2": "21:00",
-                "currentTargetTemp": 21.2
+                "useWeatherAdjustments": true,
+                "lat": 55.335,
+                "lon": -123.096
             }
         }
     ],

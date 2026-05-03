@@ -1,8 +1,98 @@
 import log from '../../utils/logger.js';
 import { addCommand } from '../../controllers/commandService.js';
 import { getDb } from '../../config/db.js';
+import SunCalc from "suncalc";
 
 const LOG_TAG = '[Action: Thermostat]';
+
+
+// Mackenzie, BC Coordinates
+const LAT = 55.335;
+const LON = -123.096;
+
+// Module-level state for rate limiting (persists as long as the process is running)
+let lastSolarFetchTime = 0;
+let lastSolarResult = false;
+const API_MIN_INTERVAL = 30 * 60 * 1000; // 30 minutes (max 2 calls per hour)
+
+async function getForecast(lat, lon, logLevel) {
+    const isSunny = (conditionText) => {
+        const terms = ['sunny', 'partly cloudy', 'clear'];
+        return terms.some(term => conditionText.toLowerCase().includes(term));
+    }
+
+    // Return a cached result if the api was called within the last half hour.
+    const now = Date.now();
+    if (now - lastSolarFetchTime < API_MIN_INTERVAL) {
+        return lastSolarResult;
+    }
+
+    log.info(`${LOG_TAG} Checking Weather API for sky conditions and temperature forecast`, logLevel);
+
+    const url = `https://weather.gc.ca/api/app/v3/en/Location/${lat},${lon}?type=city`;
+    try {
+        const response = await fetch(url);
+        lastSolarFetchTime = now;
+
+        if (!response.ok) {
+            throw new Error(`Weather API error: ${response.status} - Check if Mackenzie site ID is correct.`);
+        }
+
+        const rawData = await response.json();
+
+        if (!Array.isArray(rawData) || !rawData.length) {
+            return lastSolarResult = null;
+        }
+
+        const data = rawData[0];
+
+        const currentCondition = data.observation?.condition;
+        const currentlySunny = isSunny(currentCondition);
+
+        const hourlyForecastRaw = data.hourlyFcst?.hourly;
+
+        const windowHours = 4;
+        let forecastSunny = false;
+        let tempAvgWindow = null; 
+        let tempMaxToday = null;     
+        if (!Array.isArray(hourlyForecastRaw) && hourlyForecastRaw.length >= windowHours) {
+            log.error(`${LOG_TAG} Weather API returned unexpected data.`, null, logLevel);
+            return lastSolarResult = null;
+        }
+        // Only keep the hourly forecast for today.
+        let date = hourlyForecastRaw[0].date;
+        const hourlyForecast = [];
+        hourlyForecastRaw.forEach((info, index) => {
+            if (info.date === date || index < windowHours) {
+                hourlyForecast.push(info);
+            }
+        });
+
+        const conditionHourly = hourlyForecast.slice(0, windowHours).map((info) => info.condition);
+        forecastSunny = conditionHourly.every(isSunny);
+
+        const tempHourly = hourlyForecast.map((info) => parseInt(info.temperature?.metric));
+        const tempHourlyWindow = tempHourly.slice(0, windowHours);
+        tempAvgWindow = tempHourlyWindow.reduce((sum, temp) => sum + temp, 0) / tempHourlyWindow.length;
+        tempMaxToday = tempHourly.reduce((max, temp) => Math.max(max, temp), -Infinity);
+
+        log.info(`${LOG_TAG} Weather API response:`, logLevel);
+        log.info(`${LOG_TAG} - Currently sunny? ${currentlySunny ? 'Yes' : 'No'}`, logLevel);
+        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunny ? 'Yes' : 'No'}`, logLevel);
+        log.info(`${LOG_TAG} - Avg temp during ${windowHours}h window: ${tempAvgWindow}°C`, logLevel);
+        log.info(`${LOG_TAG} - Max temp forecast for today: ${tempMaxToday}°C`, logLevel);
+
+        return lastSolarResult = {
+            currentlySunny,
+            forecastSunny,
+            tempAvgWindow,
+            tempMaxToday
+        }
+    } catch (error) {
+        log.error(`${LOG_TAG} getForecast error: ${error.message}`);
+        return lastSolarResult = null;
+    }
+}
 
 /**
  * Checks the database for the current 'isOn' state of the target device.
@@ -42,21 +132,31 @@ const getScheduledSetpoint = (options, logLevel) => {
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
     for (let i = 1; i <= 4; i++) {
-        const temp = options[`targetTemp${i}`];
-        const time = options[`activationTime${i}`];
+        const temp = options[`setpoint${i}Temp`];
+        const time = options[`setpoint${i}Time`];
+
+        log.debug(`${LOG_TAG} getScheduledSetpoint: Checking slot ${i} - temp: ${temp} (${typeof temp}), time: ${time} (${typeof time})`, logLevel);
 
         if (typeof temp === 'number') {
-            allProvidedTemps.push(temp);
+            allProvidedTemps.push({ temp, index: i - 1 });
             if (typeof time === 'string' && timeRegex.test(time)) {
-                schedules.push({ temp, time });
+                schedules.push({ temp, time, index: i - 1 });
+                log.debug(`${LOG_TAG} getScheduledSetpoint: Slot ${i} is valid: ${time} @ ${temp}°C`, logLevel);
+            } else if (time) {
+                log.debug(`${LOG_TAG} getScheduledSetpoint: Slot ${i} rejected. Time "${time}" must be string in HH:mm format.`, logLevel);
             }
         }
     }
 
+    log.debug(`${LOG_TAG} Found ${schedules.length} valid timed schedules and ${allProvidedTemps.length} target temps total.`, logLevel);
+
     // If no timed schedules exist
     if (schedules.length === 0) {
         // Fallback: If exactly one target temp is provided, use it for 24h
-        if (allProvidedTemps.length === 1) return { temp: allProvidedTemps[0], time: 'always' };
+        if (allProvidedTemps.length === 1) {
+            log.debug(`${LOG_TAG} No timed schedules found, using single temp fallback: ${allProvidedTemps[0].temp}°C`, logLevel);
+            return { ...allProvidedTemps[0], time: 'always' };
+        }
         return null; // Inactive
     }
 
@@ -68,15 +168,39 @@ const getScheduledSetpoint = (options, logLevel) => {
     const now = new Date();
     const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+    log.debug(`${LOG_TAG} Comparing current time ${nowStr} against sorted schedules: ${schedules.map(s => s.time).join(', ')}`, logLevel);
+
     // Find the current active schedule (the latest one that has already passed)
     // Default to the last schedule of the day (handles wrap-around past midnight)
     let active = schedules[schedules.length - 1];
+    log.debug(`${LOG_TAG} Initial active set to last schedule (wrap-around): ${active.time}`, logLevel);
+
     for (const s of schedules) {
-        if (nowStr >= s.time) active = s;
-        else break;
+        if (nowStr >= s.time) {
+            log.debug(`${LOG_TAG} getScheduledSetpoint: Current time ${nowStr} is past/at ${s.time}. Activating Slot ${s.index + 1}`, logLevel);
+            active = s;
+        } else {
+            log.debug(`${LOG_TAG} getScheduledSetpoint: Current time ${nowStr} is before ${s.time}. Search finished.`, logLevel);
+            break;
+        }
     }
+    log.debug(`${LOG_TAG} Final selected setpoint: ${active.temp}°C (from schedule starting at ${active.time})`, logLevel);
     return active;
 };
+
+
+/**
+ * Weather based optimizations when transitioning to the morning setpoint: 
+ * - Let t be a constant describing the approximate expected temperature increase when a fire in the woodstove is maintained for a few hours
+ * 
+ * - Let k equal the expected indoor temperature change based on current inside temp and weather forecast for today (assuming no furnace or fire).
+ * - If the woodstove has been started, adjust k = k + t.
+ * - Note k is the total indoor temperature change expected without use of the furnace.
+ * - If current indoor temperature + k >= setpoint target, skip the transition (do not adjust the target temperature, furnace is not needed).
+ * - Otherwise, adjust the target temperature as follows: k > 0 ? setpointTarget - k : setpointTarget (furnace is partly or fully needed)
+ * 
+ * - If a fire wasn't going at the transition time but one is detected after starting the furnace, adjust targetTemp = targetTemp - t
+ */
 
 /**
  * Compares current temperature to setpoint and controls furnace relay.
@@ -85,7 +209,9 @@ const getScheduledSetpoint = (options, logLevel) => {
  */
 export const run = async (currentValue, options) => {
     const logLevel = options.log;
-    log.debug(`${LOG_TAG} running for device ${options.targetDevice} with temp: ${currentValue}`, logLevel);
+    const lat = options.lat || LAT;
+    const lon = options.lon || LON;
+    log.debug(`${LOG_TAG} Thermostat running for device ${options.targetDevice} with temp: ${currentValue}`, logLevel);
 
     if (currentValue === undefined || currentValue === null || typeof currentValue !== 'number') {
         log.debug(`${LOG_TAG} Invalid temperature provided (${currentValue}), exiting.`, logLevel);
@@ -103,8 +229,53 @@ export const run = async (currentValue, options) => {
     // If the active schedule slot has changed since the last run, 
     // we force the currentTargetTemp to match the new scheduled temperature.
     if (scheduledTime !== options._lastScheduledTime) {
-        log.info(`${LOG_TAG} Schedule transition to ${scheduledTime} detected. Updating target temp to ${scheduledTemp}°C`, logLevel);
         options.currentTargetTemp = scheduledTemp;
+
+        if (activeSchedule.index === 0 && options.useWeatherAdjustments) {
+            // Transitioning to the first setpoint of the day. Check the forecast and subtract the return from 
+            // the setpoint for this morning.
+            let offset = 0;
+
+            const forecastInfo = await getForecast(lat, lon, logLevel);
+            if (forecastInfo) {
+                const {currentlySunny, forecastSunny, tempAvgWindow, tempMaxToday} = forecastInfo;
+                
+                let offsetMaxTemp = 0;
+                if (tempMaxToday > 22) {
+                    offsetMaxTemp = -0.3;
+                } else if (tempMaxToday > 24) {
+                    offsetMaxTemp = -0.6;
+                } else if (tempMaxToday > 26) {
+                    offsetMaxTemp = -1;
+                }
+
+                let offsetTempAvg = 0;
+                if (currentlySunny && forecastSunny){
+                    if (tempAvgWindow > 2) {
+                        offsetTempAvg = -0.2;
+                    } else if (tempAvgWindow > 5) {
+                        offsetTempAvg = -0.5;
+                    } else if (tempAvgWindow > 8) {
+                        offsetTempAvg = -0.8;
+                    } else if (tempAvgWindow > 10) {
+                        offsetTempAvg = -1;
+                    }
+                }
+
+                offset = offsetMaxTemp + offsetTempAvg;                
+            } else {
+                log.error(`${LOG_TAG} Failed to obtain the weather forecast.`, logLevel);
+            }
+
+            const scheduledTempAdjusted = scheduledTemp + offset;
+            log.info(
+                `${LOG_TAG} Schedule transition to ${scheduledTime} (morning setpoint) detected. Updating target temp to ${scheduledTempAdjusted.toFixed(1)}°C -- ${scheduledTemp}°C with ${offset}°C solar adjustment`,
+                logLevel,
+            );
+            options.currentTargetTemp = scheduledTempAdjusted;
+        } else {
+            log.info(`${LOG_TAG} Schedule transition to ${scheduledTime} detected. Updating target temp to ${scheduledTemp}°C`, logLevel);            
+        }
         options._lastScheduledTime = scheduledTime;
     }
 
@@ -128,8 +299,8 @@ export const run = async (currentValue, options) => {
         return;
     }
 
-    log.debug(`${LOG_TAG} Current Temp: ${currentValue}°, Setpoint: ${setPoint}°, Hysteresis: ${hysteresis}°`, logLevel);
-    log.debug(`${LOG_TAG} Calculated thresholds: ON < ${setPoint - hysteresis}°, OFF > ${setPoint + hysteresis}°`, logLevel);
+    log.debug(`${LOG_TAG} Current Temp: ${currentValue}°, Setpoint: ${setPoint.toFixed(1)}°, Hysteresis: ${hysteresis}°`, logLevel);
+    log.debug(`${LOG_TAG} Calculated thresholds: ON < ${(setPoint - hysteresis).toFixed(1)}°, OFF > ${(setPoint + hysteresis).toFixed(1)}°`, logLevel);
 
     let desiredState;
     if (currentValue < (setPoint - hysteresis)) {
@@ -151,7 +322,7 @@ export const run = async (currentValue, options) => {
         try {
             await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: desiredState } });
         } catch (e) {
-            log.error(`${LOG_TAG} Failed to queue furnace command`, e);
+            log.error(`${LOG_TAG} Failed to queue furnace command`, e, logLevel);
         }
     } else {
         log.debug(`${LOG_TAG} Desired state (${desiredState}) matches actual state. No command sent.`, logLevel);

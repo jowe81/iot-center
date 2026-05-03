@@ -35,9 +35,9 @@ connectDB().then(() => {
 
 app.use(express.json());
 
-// Serve dashboards.html as home page
+// Serve status.html as home page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboards.html'));
+    res.sendFile(path.join(__dirname, 'public', 'status.html'));
 });
 
 // Serve static frontend files
