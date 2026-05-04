@@ -28,15 +28,38 @@ const getPlugin = async (name) => {
     }
 };
 
-const executeAction = async (actionConfig, currentValue) => {
-    log.debug(`${LOG_TAG} Executing action: ${actionConfig.name} with value ${currentValue}`);
+const resolveSourceValues = async (actionConfig, triggeringDoc = null, triggeringDeviceId = null) => {
+    const sources = actionConfig.options.sources || [];
+    const values = [];
+    const db = getDb();
+
+    for (const source of sources) {
+        let val = undefined;
+        // If this source matches the device message currently being processed, use the fresh data.
+        if (triggeringDoc && source.device === triggeringDeviceId) {
+            val = getValue(triggeringDoc, source.key);
+        } else {
+            // Otherwise fetch the latest known value from the database.
+            const collection = db.collection(`device_${source.device}`);
+            const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
+            if (latestDoc) {
+                val = getValue(latestDoc, source.key);
+            }
+        }
+        values.push(val);
+    }
+    return values;
+};
+
+const executeAction = async (actionConfig, currentValues) => {
+    log.debug(`${LOG_TAG} Executing action: ${actionConfig.name} with values ${JSON.stringify(currentValues)}`);
     try {
         const plugin = await getPlugin(actionConfig.plugin);
         if (!plugin || !plugin.run) {
             log.error(`${LOG_TAG} Plugin ${actionConfig.plugin} not found or has no run method.`);
             return;
         }
-        await plugin.run(currentValue, actionConfig.options);
+        await plugin.run(currentValues, actionConfig.options);
     } catch (e) {
         log.error(`${LOG_TAG} Error executing action "${actionConfig.name}"`, e);
     }
@@ -45,19 +68,8 @@ const executeAction = async (actionConfig, currentValue) => {
 const runActionWithLatestData = async (actionConfig) => {
     log.debug(`${LOG_TAG} Running action with latest data: ${actionConfig.name}`);
     try {
-        const db = getDb();
-        const collection = db.collection(`device_${actionConfig.options.sourceDevice}`);
-        const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
-
-        if (!latestDoc) {
-            log.debug(`${LOG_TAG} No data for source device ${actionConfig.options.sourceDevice} for action "${actionConfig.name}"`);
-            return;
-        }
-
-        const currentValue = getValue(latestDoc, actionConfig.options.sourceKey);
-        if (currentValue !== undefined) {
-            await executeAction(actionConfig, currentValue);
-        }
+        const currentValues = await resolveSourceValues(actionConfig);
+        await executeAction(actionConfig, currentValues);
     } catch (e) {
         log.error(`${LOG_TAG} Error running action "${actionConfig.name}" with latest data`, e);
     }
@@ -65,22 +77,21 @@ const runActionWithLatestData = async (actionConfig) => {
 
 export const runDataDrivenActions = async (deviceId, dataDoc) => {
     // Backward compatibility: if trigger is missing, it can't be data-driven.
-    const actions = (iotConfig.actions || []).filter(a =>
-        a.enabled &&
-        a.trigger?.type === 'data' &&
-        a.options?.sourceDevice === deviceId
-    );
+    const actions = (iotConfig.actions || []).filter(a => {
+        if (!a.enabled || a.trigger?.type !== 'data') return false;
+        const sources = a.options?.sources || [];
+        // Check if any of the sources for this action match the deviceId that just reported data.
+        return sources.some(s => s.device === deviceId);
+    });
 
     if (actions.length === 0) {
         return;
     }
 
-    log.debug(`${LOG_TAG} Checking for data-driven actions for device ${deviceId}`);
+    log.debug(`${LOG_TAG} Checking for data-driven actions triggered by device ${deviceId}`);
     for (const action of actions) {
-        const currentValue = getValue(dataDoc, action.options.sourceKey);
-        if (currentValue !== undefined) {
-            await executeAction(action, currentValue);
-        }
+        const currentValues = await resolveSourceValues(action, dataDoc, deviceId);
+        await executeAction(action, currentValues);
     }
 };
 

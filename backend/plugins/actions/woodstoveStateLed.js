@@ -43,10 +43,15 @@ const STATE_TO_COMMAND_MAP = {
 
 /**
  * Reads a state value and issues a command based on a configuration map.
- * @param {*} currentValue The value read from the sourceKey.
+ * @param {Array} currentValues Array of values from the defined sources.
  * @param {object} options The options block from the action configuration.
  */
-export const run = async (currentValue, options) => {
+export const run = async (currentValues, options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);    
+
+    // Architecture change: read the first element from the new currentValue array
+    const currentValue = Array.isArray(currentValues) ? currentValues[0] : currentValues;
+
     const logLevel = options.log;
     log.debug(`${LOG_TAG} running with value: ${currentValue}`, logLevel);
 
@@ -66,12 +71,12 @@ export const run = async (currentValue, options) => {
 
     if (commandConfig) {
         log.info(
-            `${LOG_TAG} State "${state}" matches. Queuing commands: ${JSON.stringify(commandConfig)} for ${options.targetDevice}/${options.targetSubDevice}`,
+            `${LOG_TAG} State "${state}" matches. Queuing commands: ${JSON.stringify(commandConfig)} for ${targetDevice}/${targetSubDevice}`,
             logLevel
         );
 
         try {
-            await addCommand(options.targetDevice, { [options.targetSubDevice]: commandConfig });
+            await addCommand(targetDevice, { [targetSubDevice]: commandConfig });
             options._lastState = state;
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue command`, e);
@@ -80,3 +85,17 @@ export const run = async (currentValue, options) => {
         options._lastState = state;
     }
 };
+
+function getTarget(options) {
+    if (!Array.isArray(options.targets) || options.targets.length === 0) {
+        return {
+            targetDevice: null,
+            targetSubDevice: null,
+        };
+    }
+
+    return {
+        targetDevice: options.targets[0].device,
+        targetSubDevice: options.targets[0].subDevice,
+    };
+}

@@ -53,14 +53,19 @@ const valueToColor = (value, lowBoundary, highBoundary, saturationFactor = 1, us
 
 /**
  * Reads a value and sets an RGB device color accordingly.
- * @param {*} currentValue The value read from the sourceKey.
+ * @param {Array} currentValues Array of values from the defined sources.
  * @param {object} options The options block from the action configuration.
  */
-export const run = async (currentValue, options) => {
+export const run = async (currentValues, options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);    
+
+    // Architecture change: read the first element from the new currentValue array
+    const currentValue = Array.isArray(currentValues) ? currentValues[0] : currentValues;
+
     const logLevel = options.log;
     log.debug(`${LOG_TAG} running with value: ${currentValue}`, logLevel);
 
-    if (typeof currentValue !== 'number') {
+    if (typeof currentValue !== "number") {
         log.warn(`${LOG_TAG} Invalid value provided (${currentValue}), exiting.`, logLevel);
         return;
     }
@@ -88,14 +93,34 @@ export const run = async (currentValue, options) => {
     const minInterval = (options.minIntervalMinutes ?? 5) * 60 * 1000;
 
     if (now - lastSent < minInterval) {
-        log.debug(`${LOG_TAG} Rate limit active (last sent ${Math.round((now - lastSent) / 1000)}s ago). Skipping command.`, logLevel);
+        log.debug(
+            `${LOG_TAG} Rate limit active (last sent ${Math.round((now - lastSent) / 1000)}s ago). Skipping command.`,
+            logLevel,
+        );
         return;
     }
 
     const commandConfig = { setR: r, setG: g, setB: b };
 
-    log.info(`${LOG_TAG} Value ${currentValue.toFixed(2)} -> Color(R:${r},G:${g},B:${b}). Queuing command for ${options.targetDevice}/${options.targetSubDevice}`, logLevel);
-    await addCommand(options.targetDevice, { [options.targetSubDevice]: commandConfig });
+    log.info(
+        `${LOG_TAG} Value ${currentValue.toFixed(2)} -> Color(R:${r},G:${g},B:${b}). Queuing command for ${targetDevice}/${targetSubDevice}`,
+        logLevel,
+    );
+    await addCommand(targetDevice, { [targetSubDevice]: commandConfig });
     options._lastColor = colorKey;
     options._lastSentTime = now;
 };
+
+function getTarget(options) {
+    if (!Array.isArray(options.targets) || options.targets.length === 0) {
+        return {
+            targetDevice: null,
+            targetSubDevice: null,
+        };
+    }
+
+    return {
+        targetDevice: options.targets[0].device,
+        targetSubDevice: options.targets[0].subDevice,
+    };
+}

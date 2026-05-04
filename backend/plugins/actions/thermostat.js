@@ -98,15 +98,17 @@ async function getForecast(lat, lon, logLevel) {
  * Checks the database for the current 'isOn' state of the target device.
  */
 const getActualIsOn = async (options) => {
+    const {targetDevice, targetSubDevice} = getTarget(options);
+
     try {
         const db = getDb();
-        const collection = db.collection(`device_${options.targetDevice}`);
+        const collection = db.collection(`device_${targetDevice}`);
         const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
 
         if (latestDoc && latestDoc.data) {
             for (const type of Object.values(latestDoc.data)) {
                 for (const subtype of Object.values(type)) {
-                    const subDeviceData = subtype[options.targetSubDevice];
+                    const subDeviceData = subtype[targetSubDevice];
                     if (subDeviceData) {
                         if (typeof subDeviceData.isOn === 'boolean') {
                             return subDeviceData.isOn;
@@ -204,14 +206,19 @@ const getScheduledSetpoint = (options, logLevel) => {
 
 /**
  * Compares current temperature to setpoint and controls furnace relay.
- * @param {*} currentValue The temperature read from the sourceKey.
+ * @param {Array} currentValues Array of values from the defined sources.
  * @param {object} options The configuration options.
  */
-export const run = async (currentValue, options) => {
+export const run = async (currentValues, options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);
+
+    // Architecture change: read the first element from the new currentValue array
+    const currentValue = Array.isArray(currentValues) ? currentValues[0] : currentValues;
+
     const logLevel = options.log;
     const lat = options.lat || LAT;
     const lon = options.lon || LON;
-    log.debug(`${LOG_TAG} Thermostat running for device ${options.targetDevice} with temp: ${currentValue}`, logLevel);
+    log.debug(`${LOG_TAG} Thermostat running for device ${targetDevice} with temp: ${currentValue}`, logLevel);
 
     if (currentValue === undefined || currentValue === null || typeof currentValue !== 'number') {
         log.debug(`${LOG_TAG} Invalid temperature provided (${currentValue}), exiting.`, logLevel);
@@ -320,7 +327,7 @@ export const run = async (currentValue, options) => {
     if (shouldSend) {
         log.info(`${LOG_TAG} Issuing furnace command: ${desiredState ? 'ON' : 'OFF'} (Mode: ${pushCommand}, Temp: ${currentValue}°)`, logLevel);
         try {
-            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: desiredState } });
+            await addCommand(targetDevice, { [targetSubDevice]: { setState: desiredState } });
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue furnace command`, e, logLevel);
         }
@@ -333,19 +340,35 @@ export const run = async (currentValue, options) => {
  * Shutdown procedure for the thermostat action.
  */
 export const stop = async (options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);
+
     const logLevel = options.log;
-    log.info(`${LOG_TAG} Stop called for ${options.targetDevice}. Safety check to turn off furnace.`, logLevel);
+    log.info(`${LOG_TAG} Stop called for ${targetDevice}. Safety check to turn off furnace.`, logLevel);
 
     try {
         const actualIsOn = await getActualIsOn(options);
 
         if (actualIsOn === true) {
             log.info(`${LOG_TAG} Furnace is ON. Queuing OFF command for safety.`, logLevel);
-            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
+            await addCommand(targetDevice, { [targetSubDevice]: { setState: false } });
         } else {
             log.debug(`${LOG_TAG} Furnace is already OFF or state is unknown.`, logLevel);
         }
     } catch (e) {
-        log.error(`${LOG_TAG} Error during stop procedure for ${options.targetDevice}.`, e);
+        log.error(`${LOG_TAG} Error during stop procedure for ${targetDevice}.`, e);
     }
 };
+
+function getTarget(options) {
+    if (!Array.isArray(options.targets) || options.targets.length === 0) {
+        return {
+            targetDevice: null,
+            targetSubDevice: null,
+        };
+    }
+
+    return {
+        targetDevice: options.targets[0].device,
+        targetSubDevice: options.targets[0].subDevice,
+    }
+}

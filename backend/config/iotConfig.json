@@ -41,10 +41,18 @@
             },
             "options": {
                 "log": "info",
-                "sourceDevice": "recroom_01",
-                "sourceKey": "data.Sensor.DS18B20.woodstove.woodstoveState",
-                "targetDevice": "recroom_01",
-                "targetSubDevice": "woodstoveStatusLed"
+                "sources": [
+                    {
+                        "device": "recroom_01",
+                        "key": "data.Sensor.DS18B20.woodstove.woodstoveState"
+                    }
+                ],
+                "targets": [
+                    {
+                        "device": "recroom_01",
+                        "subDevice": "woodstoveStatusLed"
+                    }
+                ]
             }
         },
         {
@@ -56,10 +64,18 @@
             },
             "options": {
                 "log": "info",
-                "sourceDevice": "woodshed_01",
-                "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
-                "targetDevice": "woodshed_01",
-                "targetSubDevice": "rgbStrip",
+                "sources": [
+                    {
+                        "device": "woodshed_01",
+                        "key": "data.Sensor.BME280.controlBox.pressureSeaLevel"
+                    }
+                ],
+                "targets": [
+                    {
+                        "device": "woodshed_01",
+                        "subDevice": "rgbStrip"
+                    }
+                ],
                 "lowBoundary": 990,
                 "highBoundary": 1020,
                 "saturationFactor": 1,
@@ -76,10 +92,18 @@
             },
             "options": {
                 "log": "info",
-                "sourceDevice": "woodshed_01",
-                "sourceKey": "data.Sensor.BME280.controlBox.pressureSeaLevel",
-                "targetDevice": "livingroom_01",
-                "targetSubDevice": "woodRackLights",
+                "sources": [
+                    {
+                        "device": "woodshed_01",
+                        "key": "data.Sensor.BME280.controlBox.pressureSeaLevel"
+                    }
+                ],
+                "targets": [
+                    {
+                        "device": "livingroom_01",
+                        "subDevice": "woodRackLights"
+                    }
+                ],
                 "lowBoundary": 990,
                 "highBoundary": 1030,
                 "saturationFactor": 0.7,
@@ -96,16 +120,24 @@
             },
             "options": {
                 "log": "debug",
-                "sourceDevice": "office_johannes_01",
-                "sourceKey": "data.Sensor.SHT31.shtSensor.humidity",
-                "targetDevice": "office_johannes_01",
-                "targetSubDevice": "humidifier",
+                "sources": [
+                    {
+                        "device": "office_johannes_01",
+                        "key": "data.Sensor.SHT31.shtSensor.humidity"
+                    }
+                ],
+                "targets": [
+                    {
+                        "device": "office_johannes_01",
+                        "subDevice": "humidifier"
+                    }
+                ],
                 "setPoint": 35,
                 "hysteresis": 3,
                 "tankDevice": "office_johannes_01",
                 "tankKey": "data.Sensor.Capacitive.humidifierTank.value",
                 "tankEmptyThreshold": 50,
-                "tankRefillThreshold": 45
+                "tankRefilledThreshold": 45
             }
         },
         {
@@ -117,10 +149,18 @@
             },
             "options": {
                 "log": "debug",
-                "sourceDevice": "aggregates",
-                "sourceKey": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC",
-                "targetDevice": "furnace_closet_01",
-                "targetSubDevice": "furnace",
+                "sources": [
+                    {
+                        "device": "aggregates",
+                        "key": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC"
+                    }
+                ],
+                "targets": [
+                    {
+                        "device": "furnace_closet_01",
+                        "subDevice": "furnace"
+                    }
+                ],
                 "currentTargetTemp": 21.7,
                 "setpoint1Time": "06:30",
                 "setpoint1Temp": 21.7,

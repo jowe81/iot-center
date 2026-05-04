@@ -6,15 +6,17 @@ import { getValue } from '../../utils/dataUtils.js';
 const LOG_TAG = '[Action: Humidistat]';
 
 const getActualIsOn = async (options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);    
+
     try {
         const db = getDb();
-        const collection = db.collection(`device_${options.targetDevice}`);
+        const collection = db.collection(`device_${targetDevice}`);
         const latestDoc = await collection.findOne({}, { sort: { receivedAt: -1 } });
 
         if (latestDoc && latestDoc.data) {
             for (const type of Object.values(latestDoc.data)) {
                 for (const subtype of Object.values(type)) {
-                    const subDeviceData = subtype[options.targetSubDevice];
+                    const subDeviceData = subtype[targetSubDevice];
                     if (subDeviceData) {
                         if (typeof subDeviceData.isOn === 'boolean') {
                             return subDeviceData.isOn;
@@ -34,12 +36,17 @@ const getActualIsOn = async (options) => {
 
 /**
  * Reads a humidity value and issues a command to a humidifier based on setpoint.
- * @param {*} currentValue The value read from the sourceKey.
+ * @param {Array} currentValues Array of values from the defined sources.
  * @param {object} options The options block from the action configuration.
  */
-export const run = async (currentValue, options) => {
+export const run = async (currentValues, options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);    
+
+    // Architecture change: read the first element from the new currentValue array
+    const currentValue = Array.isArray(currentValues) ? currentValues[0] : currentValues;
+
     const logLevel = options.log;
-    log.debug(`${LOG_TAG} running for device ${options.targetDevice} with value: ${currentValue}`, logLevel);
+    log.debug(`${LOG_TAG} running for device ${targetDevice} with value: ${currentValue}`, logLevel);
 
     if (currentValue === undefined || currentValue === null || typeof currentValue !== 'number') {
         log.debug(`${LOG_TAG} Invalid current value provided (${currentValue}), exiting.`, logLevel);
@@ -90,7 +97,7 @@ export const run = async (currentValue, options) => {
 
                     if (actualIsOn === true) {
                         log.info(`${LOG_TAG} OVERRIDE: Humidifier forced OFF. Reason: Tank empty.`, logLevel);
-                        await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
+                        await addCommand(targetDevice, { [targetSubDevice]: { setState: false } });
                     }
                     return; // Stop all other logic
                 }
@@ -106,7 +113,7 @@ export const run = async (currentValue, options) => {
                         log.debug(`${LOG_TAG} Tank is still in empty lockout. Waiting for level to drop below ${tankRefilledThreshold}.`, logLevel);
                         if (actualIsOn === true) {
                             // This might be redundant if the previous check already turned it off, but it's a good safeguard.
-                            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
+                            await addCommand(targetDevice, { [targetSubDevice]: { setState: false } });
                         }
                         return; // Stop all other logic
                     }
@@ -130,7 +137,7 @@ export const run = async (currentValue, options) => {
     if (desiredState !== actualIsOn) {
         log.info(`${LOG_TAG} Humidity ${currentValue}% triggered state change. Switching ${desiredState ? 'ON' : 'OFF'}.`, logLevel);
         try {
-            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: desiredState } });
+            await addCommand(targetDevice, { [targetSubDevice]: { setState: desiredState } });
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue command`, e);
         }
@@ -144,19 +151,35 @@ export const run = async (currentValue, options) => {
  * @param {object} options The options block from the action configuration.
  */
 export const stop = async (options) => {
+    const { targetDevice, targetSubDevice } = getTarget(options);    
+
     const logLevel = options.log;
-    log.info(`${LOG_TAG} Stop called for ${options.targetDevice}. Checking if it needs to be turned off.`, logLevel);
+    log.info(`${LOG_TAG} Stop called for ${targetDevice}. Checking if it needs to be turned off.`, logLevel);
 
     try {
         const actualIsOn = await getActualIsOn(options);
 
         if (actualIsOn === true) {
             log.info(`${LOG_TAG} Device is currently ON. Queuing OFF command for cleanup.`, logLevel);
-            await addCommand(options.targetDevice, { [options.targetSubDevice]: { setState: false } });
+            await addCommand(targetDevice, { [targetSubDevice]: { setState: false } });
         } else {
             log.debug(`${LOG_TAG} Device is not ON or state is unknown. No cleanup command needed.`, logLevel);
         }
     } catch (e) {
-        log.error(`${LOG_TAG} Error during stop procedure for ${options.targetDevice}.`, e);
+        log.error(`${LOG_TAG} Error during stop procedure for ${targetDevice}.`, e);
     }
 };
+
+function getTarget(options) {
+    if (!Array.isArray(options.targets) || options.targets.length === 0) {
+        return {
+            targetDevice: null,
+            targetSubDevice: null,
+        };
+    }
+
+    return {
+        targetDevice: options.targets[0].device,
+        targetSubDevice: options.targets[0].subDevice,
+    };
+}
