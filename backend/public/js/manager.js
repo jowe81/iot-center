@@ -234,7 +234,7 @@ function renderActions(actions) {
         
         for (const [key, value] of Object.entries(action.options || {})) {
             if (key.startsWith('_')) continue; // Skip internal state
-            if (['sourceDevice', 'sourceKey', 'targetDevice', 'targetSubDevice', 'tankDevice', 'tankKey'].includes(key)) continue; // Skip wiring config
+            if (['sources', 'targets', 'sourceDevice', 'sourceKey', 'targetDevice', 'targetSubDevice', 'tankDevice', 'tankKey'].includes(key)) continue; // Skip wiring config
 
             const row = document.createElement('div');
             row.className = 'option-row';

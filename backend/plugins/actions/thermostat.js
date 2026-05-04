@@ -15,8 +15,9 @@ let lastSolarFetchTime = 0;
 let lastSolarResult = false;
 const API_MIN_INTERVAL = 30 * 60 * 1000; // 30 minutes (max 2 calls per hour)
 
-async function getForecast(lat, lon, logLevel) {
+async function getForecast(lat, lon, forecastWindowHours, logLevel) {
     const isSunny = (conditionText) => {
+        if (!conditionText) return false;
         const terms = ['sunny', 'partly cloudy', 'clear'];
         return terms.some(term => conditionText.toLowerCase().includes(term));
     }
@@ -51,11 +52,10 @@ async function getForecast(lat, lon, logLevel) {
 
         const hourlyForecastRaw = data.hourlyFcst?.hourly;
 
-        const windowHours = 4;
         let forecastSunny = false;
         let tempAvgWindow = null; 
         let tempMaxToday = null;     
-        if (!Array.isArray(hourlyForecastRaw) && hourlyForecastRaw.length >= windowHours) {
+        if (!Array.isArray(hourlyForecastRaw) && hourlyForecastRaw.length >= forecastWindowHours) {
             log.error(`${LOG_TAG} Weather API returned unexpected data.`, null, logLevel);
             return lastSolarResult = null;
         }
@@ -63,28 +63,30 @@ async function getForecast(lat, lon, logLevel) {
         let date = hourlyForecastRaw[0].date;
         const hourlyForecast = [];
         hourlyForecastRaw.forEach((info, index) => {
-            if (info.date === date || index < windowHours) {
+            if (info.date === date || index < forecastWindowHours) {
                 hourlyForecast.push(info);
             }
         });
 
-        const conditionHourly = hourlyForecast.slice(0, windowHours).map((info) => info.condition);
-        forecastSunny = conditionHourly.every(isSunny);
+        const conditionHourly = hourlyForecast.slice(0, forecastWindowHours).map((info) => info.condition);
+        const sunnyHoursCount = conditionHourly.filter(isSunny).length + (currentlySunny ? 1 : 0);
+        forecastSunny = (sunnyHoursCount / (conditionHourly.length + 1));
 
         const tempHourly = hourlyForecast.map((info) => parseInt(info.temperature?.metric));
-        const tempHourlyWindow = tempHourly.slice(0, windowHours);
+        const tempHourlyWindow = tempHourly.slice(0, forecastWindowHours);
         tempAvgWindow = tempHourlyWindow.reduce((sum, temp) => sum + temp, 0) / tempHourlyWindow.length;
         tempMaxToday = tempHourly.reduce((max, temp) => Math.max(max, temp), -Infinity);
 
         log.info(`${LOG_TAG} Weather API response:`, logLevel);
         log.info(`${LOG_TAG} - Currently sunny? ${currentlySunny ? 'Yes' : 'No'}`, logLevel);
-        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunny ? 'Yes' : 'No'}`, logLevel);
-        log.info(`${LOG_TAG} - Avg temp during ${windowHours}h window: ${tempAvgWindow}°C`, logLevel);
+        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunny.toFixed(2)}`, logLevel);
+        log.info(`${LOG_TAG} - Avg temp during ${forecastWindowHours}h window: ${tempAvgWindow}°C`, logLevel);
         log.info(`${LOG_TAG} - Max temp forecast for today: ${tempMaxToday}°C`, logLevel);
 
         return lastSolarResult = {
             currentlySunny,
             forecastSunny,
+            forecastCloudy: 1 - forecastSunny,
             tempAvgWindow,
             tempMaxToday
         }
@@ -231,7 +233,8 @@ export const run = async (currentValues, options) => {
 
     const hysteresis = options.hysteresis || 0.5; // Default 0.5 degree deadband
     const pushCommand = options.pushCommand || 'onStateChange';
-
+    const forecastWindowHours = options.forecastWindowHours || 7;
+    
     // Schedule Override Logic: 
     // If the active schedule slot has changed since the last run, 
     // we force the currentTargetTemp to match the new scheduled temperature.
@@ -239,14 +242,19 @@ export const run = async (currentValues, options) => {
         options.currentTargetTemp = scheduledTemp;
 
         if (activeSchedule.index === 0 && options.useWeatherAdjustments) {
-            // Transitioning to the first setpoint of the day. Check the forecast and subtract the return from 
-            // the setpoint for this morning.
+            // Transitioning to the first setpoint of the day: consider optimizations if configured.
             let offset = 0;
 
-            const forecastInfo = await getForecast(lat, lon, logLevel);
+            const forecastInfo = await getForecast(lat, lon, forecastWindowHours,logLevel);
             if (forecastInfo) {
-                const {currentlySunny, forecastSunny, tempAvgWindow, tempMaxToday} = forecastInfo;
+                const {forecastSunny, tempAvgWindow, tempMaxToday} = forecastInfo;
                 
+                const forecastScheduleTempDelta = tempMaxToday - scheduledTemp;
+
+                if (forecastScheduleTempDelta > 0) {
+                    // Forecast max temp is greater than the scheduled temp.
+                }
+
                 let offsetMaxTemp = 0;
                 if (tempMaxToday > 22) {
                     offsetMaxTemp = -0.3;
@@ -257,15 +265,15 @@ export const run = async (currentValues, options) => {
                 }
 
                 let offsetTempAvg = 0;
-                if (currentlySunny && forecastSunny){
-                    if (tempAvgWindow > 2) {
-                        offsetTempAvg = -0.2;
-                    } else if (tempAvgWindow > 5) {
-                        offsetTempAvg = -0.5;
+                if (forecastSunny >= .8){
+                    if (tempAvgWindow > 10) {
+                        offsetTempAvg = -1;
                     } else if (tempAvgWindow > 8) {
                         offsetTempAvg = -0.8;
-                    } else if (tempAvgWindow > 10) {
-                        offsetTempAvg = -1;
+                    } else if (tempAvgWindow > 5) {
+                        offsetTempAvg = -0.5;
+                    } else if (tempAvgWindow > 2) {
+                        offsetTempAvg = -0.2;
                     }
                 }
 
