@@ -161,17 +161,21 @@
                         "subDevice": "furnace"
                     }
                 ],
-                "currentTargetTemp": 20.7,
+                "currentTargetTemp": 21.628999999999998,
                 "setpoint1Time": "06:30",
                 "setpoint1Temp": 22.7,
                 "setpoint2Time": "21:00",
                 "setpoint2Temp": 20.7,
                 "hysteresis": 0.1,
-                "pushCommand": "onStateChange",
+                "pushCommand": "whileOn",
                 "useWeatherAdjustments": true,
                 "lat": 55.335,
                 "lon": -123.096,
-                "forecastWindowHours": 7
+                "forecastWindowHours": 7,
+                "forecastMaxTempDeltaTrigger": "-10",
+                "maxOffsetSkyCondition": 0.6,
+                "maxOffsetMaxTemp": 0.7,
+                "maxTotalOffset": 1.5
             }
         }
     ],
@@ -604,7 +608,11 @@
                             "Sensor.SHT31.shtSensor.tempC"
                         ],
                         "options": {
-                            "log": "debug"
+                            "log": "debug",
+                            "devices": {
+                                "woodstoveFan": "kasa.80061465B741F3D278857FD2F8E09CD020C3200A",
+                                "furnaceFan": "iot.furnace_closet_01.fan"
+                            }
                         },
                         "valueMap": {
                             "off": 0,
