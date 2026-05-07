@@ -48,6 +48,23 @@ class LogicalDevice {
     }
 
     /**
+     * Generic power control function - this should be overridden
+     * @param {boolean} isOn
+     * @param {number} [heartbeatMs] Optional interval to re-send power state
+     */
+    async setPowerState(isOn, heartbeatMs) {
+        throw new Error("setPowerState must be implemented in derived class.");
+    }
+
+    /**
+     * Returns the actual power state of the device.
+     * @returns {Promise<boolean | null>} True if on, false if off, null if unknown.
+     */
+    async getPowerState() {
+        throw new Error("getPowerState must be implemented in derived class.");
+    }
+
+    /**
      * Generic data retrieval function - this should be overridden
      */
     async getData() {

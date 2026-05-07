@@ -4,6 +4,7 @@
  */
 import { getValue } from '../../utils/dataUtils.js';
 import log from '../../utils/logger.js';
+import { getDeviceByKey } from '../../controllers/logicalDeviceManager.js';
 
 const LOG_TAG = '[Plugin: WoodstoveState]';
 
@@ -444,6 +445,43 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
 
     if (newState !== previousState) {
         log.info(`${LOG_TAG} State change from ${previousState} to ${newState}`, logLevel);
+
+        const devices = options.devices || {};
+        const fanCommands = {};
+
+        // Determine which fans need switching based on state transitions
+        if (previousState === 'off' && newState === 'warmup') {
+            fanCommands.woodstoveFan = { isOn: true };
+        }
+        else if (previousState === 'warmup' && newState === 'running') {
+            fanCommands.furnaceFan = { isOn: true, heartbeatMs: 600000 }; // heartbeat for safety shutoff
+        }
+        else if (previousState === 'refuel' && newState === 'cooldown') {
+            fanCommands.woodstoveFan = { isOn: false };
+            fanCommands.furnaceFan = { isOn: false };
+        }
+
+        // Execute fan switching logic once with consolidated error handling
+        const commandPromises = Object.entries(fanCommands).map(async ([fanLabel, cmd]) => {
+            const deviceKey = devices[fanLabel];
+            if (!deviceKey) return;
+
+            const fan = getDeviceByKey(deviceKey);
+            if (!fan) {
+                log.error(`${LOG_TAG} Device for ${fanLabel} not found: ${deviceKey}`, null, logLevel);
+                return;
+            }
+
+            try {
+                await fan.setPowerState(cmd.isOn, cmd.heartbeatMs);
+            } catch (e) {
+                log.error(`${LOG_TAG} Failed to turn ${cmd.isOn ? 'on' : 'off'} ${fanLabel}:`, e, logLevel);
+            }
+        });
+
+        if (commandPromises.length > 0) {
+            await Promise.all(commandPromises);
+        }
     }
 
     return newState;

@@ -12,7 +12,7 @@ const LON = -123.096;
 
 // Module-level state for rate limiting (persists as long as the process is running)
 let lastSolarFetchTime = 0;
-let lastSolarResult = false;
+let lastForecast = null;
 const API_MIN_INTERVAL = 30 * 60 * 1000; // 30 minutes (max 2 calls per hour)
 
 async function getForecast(lat, lon, forecastWindowHours, logLevel) {
@@ -25,7 +25,7 @@ async function getForecast(lat, lon, forecastWindowHours, logLevel) {
     // Return a cached result if the api was called within the last half hour.
     const now = Date.now();
     if (now - lastSolarFetchTime < API_MIN_INTERVAL) {
-        return lastSolarResult;
+        return lastForecast;
     }
 
     log.info(`${LOG_TAG} Checking Weather API for sky conditions and temperature forecast`, logLevel);
@@ -42,7 +42,7 @@ async function getForecast(lat, lon, forecastWindowHours, logLevel) {
         const rawData = await response.json();
 
         if (!Array.isArray(rawData) || !rawData.length) {
-            return lastSolarResult = null;
+            return lastForecast = null;
         }
 
         const data = rawData[0];
@@ -52,12 +52,13 @@ async function getForecast(lat, lon, forecastWindowHours, logLevel) {
 
         const hourlyForecastRaw = data.hourlyFcst?.hourly;
 
-        let forecastSunny = false;
+        let forecastSunnyPercent = 0;
         let tempAvgWindow = null; 
-        let tempMaxToday = null;     
-        if (!Array.isArray(hourlyForecastRaw) && hourlyForecastRaw.length >= forecastWindowHours) {
+        let tempMaxWindow = null;
+        let tempMaxToday = null;
+        if (!Array.isArray(hourlyForecastRaw) || hourlyForecastRaw.length < forecastWindowHours) {
             log.error(`${LOG_TAG} Weather API returned unexpected data.`, null, logLevel);
-            return lastSolarResult = null;
+            return lastForecast = null;
         }
         // Only keep the hourly forecast for today.
         let date = hourlyForecastRaw[0].date;
@@ -70,29 +71,33 @@ async function getForecast(lat, lon, forecastWindowHours, logLevel) {
 
         const conditionHourly = hourlyForecast.slice(0, forecastWindowHours).map((info) => info.condition);
         const sunnyHoursCount = conditionHourly.filter(isSunny).length + (currentlySunny ? 1 : 0);
-        forecastSunny = (sunnyHoursCount / (conditionHourly.length + 1));
+        forecastSunnyPercent = (sunnyHoursCount / (conditionHourly.length + 1));
 
         const tempHourly = hourlyForecast.map((info) => parseInt(info.temperature?.metric));
         const tempHourlyWindow = tempHourly.slice(0, forecastWindowHours);
+        // The avg temp over the forecast window isn't used currently, but please leave in place.
         tempAvgWindow = tempHourlyWindow.reduce((sum, temp) => sum + temp, 0) / tempHourlyWindow.length;
+        tempMaxWindow = tempHourlyWindow.reduce((max, temp) => Math.max(max, temp), -Infinity);
         tempMaxToday = tempHourly.reduce((max, temp) => Math.max(max, temp), -Infinity);
 
         log.info(`${LOG_TAG} Weather API response:`, logLevel);
         log.info(`${LOG_TAG} - Currently sunny? ${currentlySunny ? 'Yes' : 'No'}`, logLevel);
-        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunny.toFixed(2)}`, logLevel);
+        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunnyPercent.toFixed(2)}`, logLevel);
         log.info(`${LOG_TAG} - Avg temp during ${forecastWindowHours}h window: ${tempAvgWindow}°C`, logLevel);
+        log.info(`${LOG_TAG} - Max temp during ${forecastWindowHours}h window: ${tempMaxWindow}°C`, logLevel);
         log.info(`${LOG_TAG} - Max temp forecast for today: ${tempMaxToday}°C`, logLevel);
 
-        return lastSolarResult = {
+        return lastForecast = {
             currentlySunny,
-            forecastSunny,
-            forecastCloudy: 1 - forecastSunny,
+            forecastSunnyPercent,
+            forecastCloudy: 1 - forecastSunnyPercent,
             tempAvgWindow,
+            tempMaxWindow,
             tempMaxToday
         }
     } catch (error) {
         log.error(`${LOG_TAG} getForecast error: ${error.message}`);
-        return lastSolarResult = null;
+        return lastForecast = null;
     }
 }
 
@@ -139,26 +144,20 @@ const getScheduledSetpoint = (options, logLevel) => {
         const temp = options[`setpoint${i}Temp`];
         const time = options[`setpoint${i}Time`];
 
-        log.debug(`${LOG_TAG} getScheduledSetpoint: Checking slot ${i} - temp: ${temp} (${typeof temp}), time: ${time} (${typeof time})`, logLevel);
-
         if (typeof temp === 'number') {
             allProvidedTemps.push({ temp, index: i - 1 });
             if (typeof time === 'string' && timeRegex.test(time)) {
                 schedules.push({ temp, time, index: i - 1 });
-                log.debug(`${LOG_TAG} getScheduledSetpoint: Slot ${i} is valid: ${time} @ ${temp}°C`, logLevel);
             } else if (time) {
                 log.debug(`${LOG_TAG} getScheduledSetpoint: Slot ${i} rejected. Time "${time}" must be string in HH:mm format.`, logLevel);
             }
         }
     }
 
-    log.debug(`${LOG_TAG} Found ${schedules.length} valid timed schedules and ${allProvidedTemps.length} target temps total.`, logLevel);
-
     // If no timed schedules exist
     if (schedules.length === 0) {
         // Fallback: If exactly one target temp is provided, use it for 24h
         if (allProvidedTemps.length === 1) {
-            log.debug(`${LOG_TAG} No timed schedules found, using single temp fallback: ${allProvidedTemps[0].temp}°C`, logLevel);
             return { ...allProvidedTemps[0], time: 'always' };
         }
         return null; // Inactive
@@ -172,23 +171,19 @@ const getScheduledSetpoint = (options, logLevel) => {
     const now = new Date();
     const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    log.debug(`${LOG_TAG} Comparing current time ${nowStr} against sorted schedules: ${schedules.map(s => s.time).join(', ')}`, logLevel);
-
     // Find the current active schedule (the latest one that has already passed)
     // Default to the last schedule of the day (handles wrap-around past midnight)
     let active = schedules[schedules.length - 1];
-    log.debug(`${LOG_TAG} Initial active set to last schedule (wrap-around): ${active.time}`, logLevel);
 
     for (const s of schedules) {
         if (nowStr >= s.time) {
-            log.debug(`${LOG_TAG} getScheduledSetpoint: Current time ${nowStr} is past/at ${s.time}. Activating Slot ${s.index + 1}`, logLevel);
             active = s;
         } else {
-            log.debug(`${LOG_TAG} getScheduledSetpoint: Current time ${nowStr} is before ${s.time}. Search finished.`, logLevel);
             break;
         }
     }
-    log.debug(`${LOG_TAG} Final selected setpoint: ${active.temp}°C (from schedule starting at ${active.time})`, logLevel);
+
+    log.debug(`${LOG_TAG} Selected setpoint: ${active.temp}°C (from schedule starting at ${active.time})`, logLevel);
     return active;
 };
 
@@ -232,59 +227,84 @@ export const run = async (currentValues, options) => {
     const scheduledTime = activeSchedule ? activeSchedule.time : null;
 
     const hysteresis = options.hysteresis || 0.5; // Default 0.5 degree deadband
-    const pushCommand = options.pushCommand || 'onStateChange';
+    const pushCommand = options.pushCommand || 'whileOn';
     const forecastWindowHours = options.forecastWindowHours || 7;
+    const forecastMaxTempDeltaTrigger = -Math.abs(options.forecastMaxTempDeltaTrigger || -10);
+    const maxOffsetMaxTemp = options.maxOffsetMaxTemp || 1;
+    const maxOffsetSkyCondition = options.maxOffsetSkyCondition || 1;
+    const maxTotalOffset = options.maxTotalOffset || 5;
     
     // Schedule Override Logic: 
     // If the active schedule slot has changed since the last run, 
     // we force the currentTargetTemp to match the new scheduled temperature.
     if (scheduledTime !== options._lastScheduledTime) {
+        // Retain the current target from the overnight setpoint, use as safety floor later.
+        const previousTargetTemp = options.currentTargetTemp;
+        // Default to setting the target temp to the new setpoint.
         options.currentTargetTemp = scheduledTemp;
 
+        // Consider adjustments now.
         if (activeSchedule.index === 0 && options.useWeatherAdjustments) {
             // Transitioning to the first setpoint of the day: consider optimizations if configured.
+            // The idea is to consider the forecast and see if we should reduce the target temperature
+            // from the scheduled target temperature for today.
+            log.info(`${LOG_TAG} Transitioning to morning setpoint. Evaluating weather-based offsets.`, logLevel);
             let offset = 0;
 
             const forecastInfo = await getForecast(lat, lon, forecastWindowHours,logLevel);
             if (forecastInfo) {
-                const {forecastSunny, tempAvgWindow, tempMaxToday} = forecastInfo;
-                
-                const forecastScheduleTempDelta = tempMaxToday - scheduledTemp;
+                const { forecastSunnyPercent, tempAvgWindow, tempMaxWindow } = forecastInfo;
 
-                if (forecastScheduleTempDelta > 0) {
-                    // Forecast max temp is greater than the scheduled temp.
+                // Calculate an offset based on sky condition. forecastSunnyPercent is a factor between 0 and 1 based on
+                // how sunny the next forecastWindowHours hour are.
+                const offsetSkyCondition = maxOffsetSkyCondition * forecastSunnyPercent;
+
+                // This is positive if the forecast max temp is greater than the setpoint temp
+                // and negative if the forecast max temp is lower than the setpoint temp.
+                const forecastScheduleTempDelta = tempMaxWindow - scheduledTemp;
+
+                log.debug(`${LOG_TAG} Adjustment Data: MaxTemp: ${tempMaxWindow}°C, Scheduled: ${scheduledTemp}°C, Delta: ${forecastScheduleTempDelta.toFixed(2)}`, logLevel);
+
+                if (forecastScheduleTempDelta <= forecastMaxTempDeltaTrigger) {
+                    // Forecast max temp is too far below the setpoint to rely on
+                    // sunshine to help heat the house.
+                    log.info(`${LOG_TAG} Weather Adjustment Scenario A: Too cold (Delta ${forecastScheduleTempDelta.toFixed(1)} <= ${forecastMaxTempDeltaTrigger}). No adjustment.`, logLevel);
+                } else if (forecastScheduleTempDelta > forecastMaxTempDeltaTrigger && forecastScheduleTempDelta <= 0) {
+                    // Forecast max temp is no colder than 10 degrees below but not greater
+                    // than the setpoint. Here the sun will make a difference, we'll take off up to
+                    // maxOffsetMaxTemp degrees from the setpoint.
+                    log.info(`${LOG_TAG} Weather Adjustment Scenario B: Interpolating based on forecast max.`, logLevel);
+                    
+                    // Assuming forecastMaxTempDeltaTrigger = -10 as an example,
+                    // this mapping results in the following offsets for forecastScheduleTempDelta value:
+                    // -10 => 0, -5 => 0.5 * maxOffsetMaxTemp, 0 => maxOffsetMaxTemp
+                    const offsetMaxTemp =
+                        ((forecastScheduleTempDelta - forecastMaxTempDeltaTrigger) / -forecastMaxTempDeltaTrigger) * maxOffsetMaxTemp;
+
+                    // Note the offset should be positive. It gets subtracted from the target temp below.
+                    offset = offsetMaxTemp + offsetSkyCondition;
+                    log.debug(`${LOG_TAG} Scenario B details: offsetMaxTemp=${offsetMaxTemp.toFixed(2)}, offsetSkyCondition=${offsetSkyCondition.toFixed(2)}`, logLevel);
+                } else if (forecastScheduleTempDelta > 0) {
+                    // Forecast max temp is greater than the setpoint temp.
+                    // Carry over the max offset from Scenario B, plus apply the difference as an offset.
+                    offset = maxOffsetMaxTemp + offsetSkyCondition + forecastScheduleTempDelta;
+                    log.info(`${LOG_TAG} Weather Adjustment Scenario C: Warm day forecast (Delta ${forecastScheduleTempDelta.toFixed(1)}). Total offset: ${offset.toFixed(2)}`, logLevel);
                 }
-
-                let offsetMaxTemp = 0;
-                if (tempMaxToday > 22) {
-                    offsetMaxTemp = -0.3;
-                } else if (tempMaxToday > 24) {
-                    offsetMaxTemp = -0.6;
-                } else if (tempMaxToday > 26) {
-                    offsetMaxTemp = -1;
-                }
-
-                let offsetTempAvg = 0;
-                if (forecastSunny >= .8){
-                    if (tempAvgWindow > 10) {
-                        offsetTempAvg = -1;
-                    } else if (tempAvgWindow > 8) {
-                        offsetTempAvg = -0.8;
-                    } else if (tempAvgWindow > 5) {
-                        offsetTempAvg = -0.5;
-                    } else if (tempAvgWindow > 2) {
-                        offsetTempAvg = -0.2;
-                    }
-                }
-
-                offset = offsetMaxTemp + offsetTempAvg;                
             } else {
                 log.error(`${LOG_TAG} Failed to obtain the weather forecast.`, logLevel);
             }
 
-            const scheduledTempAdjusted = scheduledTemp + offset;
+            // Calculate adjusted temp, but don't drop below the previous (overnight) setpoint
+            // and respect the maximum total offset allowed.
+            const floorFromPrevious = previousTargetTemp ?? scheduledTemp;
+            const floorFromMaxOffset = scheduledTemp - maxTotalOffset;
+            const floor = Math.max(floorFromPrevious, floorFromMaxOffset);
+            const scheduledTempAdjusted = Math.max(scheduledTemp - offset, floor);
+
+            log.debug(`${LOG_TAG} Result: Target ${scheduledTemp} - Offset ${offset.toFixed(2)} = ${(scheduledTemp - offset).toFixed(2)}. Floor (Prev: ${floorFromPrevious.toFixed(1)}, MaxOff: ${floorFromMaxOffset.toFixed(1)}): ${floor.toFixed(1)}. Final: ${scheduledTempAdjusted.toFixed(1)}`, logLevel);
+
             log.info(
-                `${LOG_TAG} Schedule transition to ${scheduledTime} (morning setpoint) detected. Updating target temp to ${scheduledTempAdjusted.toFixed(1)}°C -- ${scheduledTemp}°C with ${offset}°C solar adjustment`,
+                `${LOG_TAG} Schedule transition to ${scheduledTime} (morning setpoint) detected. Target: ${scheduledTempAdjusted.toFixed(1)}°C (Scheduled: ${scheduledTemp}°C, Solar Adjustment: -${offset.toFixed(1)}°C)`,
                 logLevel,
             );
             options.currentTargetTemp = scheduledTempAdjusted;
@@ -330,12 +350,20 @@ export const run = async (currentValues, options) => {
         log.debug(`${LOG_TAG} Temperature is within deadband. Maintaining current state: ${desiredState}`, logLevel);
     }
 
-    const shouldSend = (pushCommand === 'always') || (desiredState !== actualIsOn);
+    const now = Date.now();
+    const lastOnSentTime = options._lastOnSentTime || 0;
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+    const shouldSend =
+        (pushCommand === 'always') || 
+        (desiredState !== actualIsOn) || 
+        (pushCommand === 'whileOn' && desiredState === true && (now - lastOnSentTime >= REFRESH_INTERVAL_MS));
 
     if (shouldSend) {
         log.info(`${LOG_TAG} Issuing furnace command: ${desiredState ? 'ON' : 'OFF'} (Mode: ${pushCommand}, Temp: ${currentValue}°)`, logLevel);
         try {
             await addCommand(targetDevice, { [targetSubDevice]: { setState: desiredState } });
+            if (desiredState === true) options._lastOnSentTime = now;
         } catch (e) {
             log.error(`${LOG_TAG} Failed to queue furnace command`, e, logLevel);
         }

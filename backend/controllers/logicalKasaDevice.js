@@ -14,6 +14,36 @@ export class LogicalKasaDevice extends LogicalDevice {
     }
 
     /**
+     * Powers the Kasa device on or off.
+     * @param {boolean} isOn
+     * @param {number} [heartbeatMs] Optional interval to re-send power state
+     */
+    async setPowerState(isOn, heartbeatMs) {
+        await this.sendCommand({ on_off: isOn });
+    }
+
+    /**
+     * Returns the actual power state of the Kasa device.
+     * @returns {Promise<boolean | null>} True if on, false if off, null if unknown.
+     */
+    async getPowerState() {
+        try {
+            const sysInfo = await this.getData(); // getData fetches sysInfo
+            if (!sysInfo) return null;
+
+            if (this.cfg?.type === 'plug') {
+                return sysInfo.relay_state === 1;
+            } else if (this.cfg?.type === 'light') {
+                return sysInfo.light_state?.on_off === 1;
+            }
+            return null;
+        } catch (e) {
+            log.error(`${LOG_TAG} Failed to get power state for Kasa device ${this.deviceKey}: ${e.message}`, e, this.logLevel);
+            return null;
+        }
+    }
+
+    /**
      * Issues a command to a Kasa device
      * @param {*} command
      * @param {*} argument

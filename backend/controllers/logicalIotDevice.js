@@ -4,6 +4,8 @@ import { saveLogicalDevicesConfig, logicalDevicesConfig } from '../utils/configU
 import { getDb } from '../config/db.js';
 import { addCommand } from './commandService.js';
 
+const LOG_TAG = '[LogicalIotDevice]';
+
 /**
  * This type of logical device is an ESP8266/ESP32 and sends its info via MQTT/HTTP
  */
@@ -13,6 +15,47 @@ export class LogicalIotDevice extends LogicalDevice {
         this._cachedData = null;
         this._cachedReceivedAt = null;
         this._lastDbFetchAttempt = 0;
+        this._heartbeatInterval = null;
+    }
+
+    /**
+     * Powers the IoT device on or off.
+     * @param {boolean} isOn
+     * @param {number} [heartbeatMs] Optional interval to re-send power state
+     */
+    async setPowerState(isOn, heartbeatMs) {
+        if (this._heartbeatInterval) {
+            clearInterval(this._heartbeatInterval);
+            this._heartbeatInterval = null;
+        }
+
+        await this.sendCommand('setState', isOn);
+
+        if (heartbeatMs) {
+            this._heartbeatInterval = setInterval(() => {
+                this.sendCommand('setState', isOn).catch(err => {
+                    log.error(`Heartbeat failed for ${this.deviceKey}: ${err.message}`, err, this.logLevel);
+                });
+            }, heartbeatMs);
+        }
+    }
+
+    /**
+     * Returns the actual power state of the IoT device.
+     * This method directly queries the database for the 'isOn' state reported by the device.
+     * @returns {Promise<boolean | null>} True if on, false if off, null if unknown.
+     */
+    async getPowerState() {
+        try {
+            const data = await this.getData();
+            if (data && typeof data.isOn === 'boolean') {
+                return data.isOn;
+            }
+            return null;
+        } catch (e) {
+            log.error(`${LOG_TAG} Error checking power state for ${this.deviceKey}: ${e.message}`, e, this.logLevel);
+            return null;
+        }
     }
 
     /**
