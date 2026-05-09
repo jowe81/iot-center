@@ -21,6 +21,7 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 let chart;
 let currentDeviceConfig = {};
 fieldSelect.disabled = true;
+let latestChartOptions = null;
 
 let allFieldOptions = [];
 const ws = new WebSocket(`ws://${window.location.host}`);
@@ -32,6 +33,9 @@ ws.onopen = () => {
 ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     if (msg.type === 'GRAPH' && msg.deviceId === deviceSelect.value) {
+        if (msg.chartJsOptions) {
+            latestChartOptions = msg.chartJsOptions;
+        }
         renderChartData(msg.payload, msg.options, msg.mappings);
     }
 };
@@ -192,6 +196,13 @@ async function updateChart() {
 }
 
 function renderChartData(dataMap, options, mappings) {
+        if (latestChartOptions && chart) {
+            // Merge the new options into the chart instance.
+            // Using Object.assign on the top level ensures we update scales (e.g. minute vs hour)
+            // without losing instance-specific settings.
+            Object.assign(chart.options, latestChartOptions);
+        }
+
         // Render Legend for Mappings
         let legendContainer = document.getElementById('chartLegend');
         if (!legendContainer) {

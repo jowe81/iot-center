@@ -285,6 +285,32 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
         const db = getDb();
         const collection = db.collection(`device_${deviceId}`);
 
+        const chartJsOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: "time",
+                    time: {
+                        unit: "minute",
+                        displayFormats: {
+                            minute: "HH:mm",
+                        },
+                    },
+                    title: {
+                        display: true,
+                        text: "Time",
+                    },
+                    ticks: {
+                        //stepSize: 60
+                    },
+                },
+                y: {
+                    beginAtZero: false,
+                },
+            },
+        };
+
         let query = {};
         let startTime;
         let endTime = new Date();
@@ -311,21 +337,27 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
                     break;
                 case "24h":
                     startTime.setHours(now.getHours() - 24);
+                    chartJsOptions.scales.x.time.unit = "hour";
                     break;
                 case "48h":
                     startTime.setHours(now.getHours() - 48);
+                    chartJsOptions.scales.x.time.unit = "hour";
                     break;
                 case "7d":
                     startTime.setDate(now.getDate() - 7);
+                    chartJsOptions.scales.x.time.unit = "day";                    
                     break;
                 case "30d":
                     startTime.setDate(now.getDate() - 30);
+                    chartJsOptions.scales.x.time.unit = "day";
                     break;
                 case "1y":
                     startTime.setFullYear(now.getFullYear() - 1);
+                    chartJsOptions.scales.x.time.unit = "day";
                     break;
                 case "5y":
                     startTime.setFullYear(now.getFullYear() - 5);
+                    chartJsOptions.scales.x.time.unit = "month";
                     break;
             }
             query.receivedAt = { $gte: startTime };
@@ -490,7 +522,7 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
             }).filter(point => point.y !== null).reverse(); // Reverse to chronological order
         });
 
-        return { data: result, mappings };
+        return { data: result, mappings, chartJsOptions };
     } catch (error) {
         throw error;
     }
@@ -498,8 +530,8 @@ export const fetchDeviceData = async (deviceId, { field, fields, timeframe, accu
 
 export const getDeviceData = async (req, res) => {
     try {
-        const { data, mappings } = await fetchDeviceData(req.params.deviceId, req.query);
-        res.json({ data, mappings });
+        const { data, mappings, chartJsOptions } = await fetchDeviceData(req.params.deviceId, req.query);
+        res.json({ data, mappings, chartJsOptions});
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

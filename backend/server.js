@@ -43,6 +43,10 @@ app.get('/', (req, res) => {
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve Chart.js and date adapter from node_modules
+app.use('/scripts', express.static(path.join(__dirname, 'node_modules/chart.js/dist')));
+app.use('/scripts', express.static(path.join(__dirname, 'node_modules/chartjs-adapter-date-fns/dist')));
+
 // Request Logger Middleware
 app.use((req, res, next) => {
   log.info(`[HTTP] Incoming request: ${req.method} ${req.url}`);

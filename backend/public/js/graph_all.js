@@ -18,6 +18,7 @@ const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 let chart;
 let deviceConfigs = {};
 fieldSelect.disabled = true;
+let latestChartOptions = null;
 
 const ws = new WebSocket(`ws://${window.location.host}`);
 let allFieldOptions = [];
@@ -33,6 +34,9 @@ ws.onmessage = (event) => {
     if (msg.type === 'GRAPH') {
         chartDataCache[msg.deviceId] = msg.payload;
         chartMappingsCache[msg.deviceId] = msg.mappings;
+        if (msg.chartJsOptions) {
+            latestChartOptions = msg.chartJsOptions;
+        }
         renderChart();
     }
 };
@@ -183,6 +187,13 @@ function updateChart() {
 }
 
 function renderChart() {
+        if (latestChartOptions && chart) {
+            // Merge the new options into the chart instance.
+            // Using Object.assign on the top level and specifically for scales
+            // ensures we don't lose responsive/aspectRatio settings.
+            Object.assign(chart.options, latestChartOptions);
+        }
+
         // Render Legend for Mappings
         let legendContainer = document.getElementById('chartLegend');
         if (!legendContainer) {
