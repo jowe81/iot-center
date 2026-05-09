@@ -209,18 +209,22 @@ const getScheduledSetpoint = (options, logLevel) => {
 export const run = async (currentValues, options) => {
     const { targetDevice, targetSubDevice } = getTarget(options);
 
-    // Architecture change: read the first element from the new currentValue array
+    // Architecture change: read the first element from the new currentValue array    
     const currentValue = Array.isArray(currentValues) ? currentValues[0] : currentValues;
+    // The second input should be the raw woodstove state.
+    const woodstoveState = Array.isArray(currentValues) ? currentValues[1] : currentValues;
 
     const logLevel = options.log;
     const lat = options.lat || LAT;
     const lon = options.lon || LON;
-    log.debug(`${LOG_TAG} Thermostat running for device ${targetDevice} with temp: ${currentValue}`, logLevel);
-
+    const woodstoveOffset = Math.abs(options.woodstoveOffset || 0.5);
+    
     if (currentValue === undefined || currentValue === null || typeof currentValue !== 'number') {
         log.debug(`${LOG_TAG} Invalid temperature provided (${currentValue}), exiting.`, logLevel);
         return;
     }
+
+    log.debug(`${LOG_TAG} Thermostat running for device ${targetDevice} with temp: ${currentValue}, woodstove state: ${woodstoveState ?? 'unknown'}`, logLevel);
 
     const activeSchedule = getScheduledSetpoint(options, logLevel);
     const scheduledTemp = activeSchedule ? activeSchedule.temp : null;
@@ -234,10 +238,12 @@ export const run = async (currentValues, options) => {
     const maxOffsetSkyCondition = options.maxOffsetSkyCondition || 1;
     const maxTotalOffset = options.maxTotalOffset || 5;
     
+    const scheduleSlotChanged = options._lastScheduledTime !== scheduledTime;
+
     // Schedule Override Logic: 
     // If the active schedule slot has changed since the last run, 
     // we force the currentTargetTemp to match the new scheduled temperature.
-    if (scheduledTime !== options._lastScheduledTime) {
+    if (scheduleSlotChanged) {
         // Retain the current target from the overnight setpoint, use as safety floor later.
         const previousTargetTemp = options.currentTargetTemp;
         // Default to setting the target temp to the new setpoint.
@@ -314,6 +320,27 @@ export const run = async (currentValues, options) => {
         options._lastScheduledTime = scheduledTime;
     }
 
+    // See about whether the configured woodstoveOffset needs to be applied to the current target temp.
+    if (scheduleSlotChanged) {
+        // Schedule slot changed, so we have a fresh target. 
+        // Just apply the offset if the woodstove is currently running.
+        if (woodstoveIsOn(woodstoveState)) {
+            options.currentTargetTemp -= woodstoveOffset;
+            log.info(`${LOG_TAG} Woodstove is running during schedule transition. Applying offset of -${woodstoveOffset.toFixed(1)}°C. New target: ${options.currentTargetTemp.toFixed(1)}°C`, logLevel);
+        }
+    } else {
+        // React to woodstove state changes during the current schedule slot
+        const woodstoveStateChangedTo = woodstovePowerstateChange(woodstoveState, options._lastWoodstoveState);
+        if (woodstoveStateChangedTo === true) {
+            options.currentTargetTemp -= woodstoveOffset;
+            log.info(`${LOG_TAG} Woodstove state change detected: Fire was lit. Applying offset of -${woodstoveOffset.toFixed(1)}°C. New target: ${options.currentTargetTemp.toFixed(1)}°C`, logLevel);
+        } else if (woodstoveStateChangedTo === false) {
+            options.currentTargetTemp += woodstoveOffset;
+            log.info(`${LOG_TAG} Woodstove state change detected. Woodstove cooled off. Removing offset of ${woodstoveOffset.toFixed(1)}°C. New target: ${options.currentTargetTemp.toFixed(1)}°C`, logLevel);
+        }
+    }
+    options._lastWoodstoveState = woodstoveState;       
+
     const setPoint = options.currentTargetTemp;
 
     if (setPoint === null) {
@@ -370,6 +397,21 @@ export const run = async (currentValues, options) => {
     } else {
         log.debug(`${LOG_TAG} Desired state (${desiredState}) matches actual state. No command sent.`, logLevel);
     }
+};
+
+const woodstoveIsOn = (woodstoveState) => ["warmup", "running", "refuel"].includes(woodstoveState);
+
+// Returns true if the woodstove turned on, false if it turned off, null if its state didn't change since the last run.
+const woodstovePowerstateChange = (woodstoveState, lastWoodstoveState) => {
+    const isOn = woodstoveIsOn(woodstoveState);
+    const wasOn = woodstoveIsOn(lastWoodstoveState);
+
+    if (isOn !== wasOn) {
+        return isOn ? true : false;
+    }
+
+    // No change.
+    return null;
 };
 
 /**

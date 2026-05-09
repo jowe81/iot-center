@@ -153,6 +153,10 @@
                     {
                         "device": "aggregates",
                         "key": "data.Sensor.aggregateTemp.spatialAverageInsideRolling.tempC"
+                    },
+                    {
+                        "device": "recroom_01",
+                        "key": "data.Sensor.DS18B20.woodstove.woodstoveState"
                     }
                 ],
                 "targets": [
@@ -161,11 +165,11 @@
                         "subDevice": "furnace"
                     }
                 ],
-                "currentTargetTemp": 21.628999999999998,
+                "currentTargetTemp": 21.52,
                 "setpoint1Time": "06:30",
-                "setpoint1Temp": 22.7,
+                "setpoint1Temp": 22.2,
                 "setpoint2Time": "21:00",
-                "setpoint2Temp": 20.7,
+                "setpoint2Temp": 20.2,
                 "hysteresis": 0.1,
                 "pushCommand": "whileOn",
                 "useWeatherAdjustments": true,
@@ -173,9 +177,10 @@
                 "lon": -123.096,
                 "forecastWindowHours": 7,
                 "forecastMaxTempDeltaTrigger": "-10",
-                "maxOffsetSkyCondition": 0.6,
+                "maxOffsetSkyCondition": 0.7,
                 "maxOffsetMaxTemp": 0.7,
-                "maxTotalOffset": 1.5
+                "maxTotalOffset": 1.5,
+                "woodstoveOffset": 0.5
             }
         }
     ],

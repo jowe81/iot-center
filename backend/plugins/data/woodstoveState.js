@@ -400,6 +400,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             // To 'cooldown': Temp continues to drop or falls below running temp.
             else if (currentTemp < RUNNING_TEMP_THRESHOLD - 7) {
                 newState = "cooldown";
+                options._lastCooldownTransitionTime = Date.now();
                 log.debug(`${LOG_TAG} Transition from refuel to cooldown triggered. Reasons:`, logLevel);
                 if (!tempIsAboveRunningThreshold) {
                     log.debug(
@@ -424,13 +425,20 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             }
             // To 'warmup': It's heating up again.
             else if (tempIsSignificantlyAboveAmbient && tempIsRising) {
-                newState = "warmup";
-                log.debug(`${LOG_TAG} Transition from cooldown to warmup triggered. Reasons:`, logLevel);
-                if (tempIsSignificantlyAboveAmbient) {
-                    log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
-                }
-                if (tempIsRising) {
-                    log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                const COOLDOWN_LOCKOUT_MINUTES = options.cooldownLockoutMinutes ?? 30;
+                const minutesSinceCooldownStart = (Date.now() - (options._lastCooldownTransitionTime || 0)) / 60000;
+
+                if (minutesSinceCooldownStart < COOLDOWN_LOCKOUT_MINUTES) {
+                    log.debug(`${LOG_TAG} Transition from cooldown to warmup suppressed by lockout (${minutesSinceCooldownStart.toFixed(1)}m < ${COOLDOWN_LOCKOUT_MINUTES}m)`, logLevel);
+                } else {
+                    newState = "warmup";
+                    log.debug(`${LOG_TAG} Transition from cooldown to warmup triggered. Reasons:`, logLevel);
+                    if (tempIsSignificantlyAboveAmbient) {
+                        log.debug(`  - Temp is significantly above ambient: ${currentTemp.toFixed(2)} > ${AMBIENT_TEMP.toFixed(2)} + 2`, logLevel);
+                    }
+                    if (tempIsRising) {
+                        log.debug(`  - Temp is rising: slope > ${RISE_SLOPE_THRESHOLD}`, logLevel);
+                    }
                 }
             }
             break;
@@ -449,16 +457,17 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
         const devices = options.devices || {};
         const fanCommands = {};
 
-        // Determine which fans need switching based on state transitions
-        if (previousState === 'off' && newState === 'warmup') {
+        // Determine fan state based on new state.
+        if (['warmup', 'running', 'refuel'].includes(newState)) {
             fanCommands.woodstoveFan = { isOn: true };
-        }
-        else if (previousState === 'warmup' && newState === 'running') {
-            fanCommands.furnaceFan = { isOn: true, heartbeatMs: 600000 }; // heartbeat for safety shutoff
-        }
-        else if (previousState === 'refuel' && newState === 'cooldown') {
-            fanCommands.woodstoveFan = { isOn: false };
+
+            if (['running', 'refuel'].includes(newState)) {
+                fanCommands.furnaceFan = { isOn: true };
+            }
+        } else {
+            // cooldown and off
             fanCommands.furnaceFan = { isOn: false };
+            fanCommands.woodstoveFan = { isOn: false };
         }
 
         // Execute fan switching logic once with consolidated error handling
