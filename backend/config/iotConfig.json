@@ -442,13 +442,18 @@
             ]
         }
     ],
-    "graphing_transformers": [
-        {
-            "deviceId": "furnace_closet_01",
-            "dataKey": "DeviceControl.Relay.furnace.isOn",
-            "transformerFn": "furnaceOnOff"
-        }
-    ],
+    "graphing_transformers": {
+        "furnaceOnOff": [
+            {
+                "device": "furnace_closet_01",
+                "key": "DeviceControl.Relay.furnace.isOn"
+            },
+            {
+                "device": "furnace_closet_01",
+                "key": "DeviceControl.Relay.fan.isOn"
+            }
+        ]
+    },
     "devices": {
         "aggregates": {
             "meta": {

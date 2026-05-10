@@ -99,5 +99,12 @@ export const detectPlateauAtTime = (data, vKey, tKey, cutoffTimestamp = null, wi
  */
 export const getGraphTransformerConfig = (config, deviceId, dataKey) => {
     if (!config || !config.graphing_transformers) return null;
-    return config.graphing_transformers.find(t => t.deviceId === deviceId && t.dataKey === dataKey);
+    const transformers = config.graphing_transformers;
+    for (const [transformerFn, mappings] of Object.entries(transformers)) {
+        if (Array.isArray(mappings) && mappings.some(m => m.device === deviceId && m.key === dataKey)) {
+            // Return in a format compatible with caller expectation (.transformerFn)
+            return { transformerFn };
+        }
+    }
+    return null;
 };
