@@ -10,7 +10,9 @@ import log from "../../utils/logger.js";
 import { getDeviceByKey } from '../../controllers/logicalDeviceManager.js';
 
 const sourceMap = {
-    "iot.recroom_01.shtSensor": "tempC",
+    // This sensor is too close to the chimney - using the one on the furnace_closet_01 device instead.
+    //"iot.recroom_01.shtSensor": "tempC",
+    "iot.furnace_closet_01.recroom": "tempC",
     "iot.office_johannes_01.shtSensor": "tempC",
     "iot.kitchen_01.tempKitchen": "tempC",
     "iot.livingroom_01.shtSensor": "tempC",

@@ -165,11 +165,11 @@
                         "subDevice": "furnace"
                     }
                 ],
-                "currentTargetTemp": 21.52,
+                "currentTargetTemp": 22.7,
                 "setpoint1Time": "06:30",
-                "setpoint1Temp": 22.2,
+                "setpoint1Temp": 22.5,
                 "setpoint2Time": "21:00",
-                "setpoint2Temp": 20.2,
+                "setpoint2Temp": 20.5,
                 "hysteresis": 0.1,
                 "pushCommand": "whileOn",
                 "useWeatherAdjustments": true,
