@@ -165,18 +165,18 @@
                         "subDevice": "furnace"
                     }
                 ],
-                "currentTargetTemp": 22.7,
-                "setpoint1Time": "06:30",
-                "setpoint1Temp": 22.5,
-                "setpoint2Time": "21:00",
-                "setpoint2Temp": 20.5,
-                "hysteresis": 0.1,
+                "currentTargetTemp": 19.7,
+                "setpoint1Time": "07:00",
+                "setpoint1Temp": 21.2,
+                "setpoint2Time": "20:00",
+                "setpoint2Temp": 19.7,
+                "hysteresis": 0.2,
                 "pushCommand": "whileOn",
-                "useWeatherAdjustments": true,
+                "useWeatherAdjustments": false,
                 "lat": 55.335,
                 "lon": -123.096,
                 "forecastWindowHours": 7,
-                "forecastMaxTempDeltaTrigger": "-10",
+                "forecastMaxTempDeltaTrigger": "-13",
                 "maxOffsetSkyCondition": 0.7,
                 "maxOffsetMaxTemp": 0.7,
                 "maxTotalOffset": 1.5,
@@ -386,7 +386,7 @@
             "enabled": true,
             "trigger": {
                 "type": "daily",
-                "time": "07:00"
+                "time": "06:30"
             },
             "targets": [
                 {

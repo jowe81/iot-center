@@ -353,7 +353,7 @@ export const run = async (deviceId, filteredData, inputs, outputKey, options, db
             if (!isLockedOut && (
                 (tempHasDroppedSignificantlyFromPeak && tempIsFalling && tempDropIsAccelerating) || 
                 !tempIsAboveRunningThreshold || 
-                (timeSincePeakMinutes > 60 && timeSinceDipMinutes > timeSincePeakMinutes && tempIsFalling) ||
+                (timeSincePeakMinutes > 60 && timeSinceDipMinutes > timeSincePeakMinutes && !tempIsRising) ||
                 (!peakHasOccurred && slopeIsZero)
             )) {
                 newState = "refuel";
