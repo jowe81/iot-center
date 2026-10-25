@@ -8,6 +8,7 @@ import { updateOrCreateDevice, getDeviceByKey } from './logicalDeviceManager.js'
 import { fetchDeviceStats, getSingleDeviceStatusData } from './frontendController.js';
 import { findDataKeys, getValue, setValue, isRedundant } from '../utils/dataUtils.js';
 import { saveRawData } from '../utils/rawDataStore.js';
+import { forwardDeviceData } from './mqttService.js';
 import * as woodstoveState from '../plugins/data/woodstoveState.js';
 import * as batteryCharge from '../plugins/data/batteryCharge.js';
 import * as seaLevelPressure from '../plugins/data/seaLevelPressure.js';
@@ -260,6 +261,7 @@ export const processDeviceMessage = async (data, protocol = 'UNKNOWN') => {
 
         // Save and Broadcast
         await saveAndBroadcast(deviceId, filteredData, data, protocol);
+        await forwardDeviceData(deviceId, filteredData);
 
         const responsePayload = { status: "Recorded", collection: `device_${deviceId}`, deviceId };
         

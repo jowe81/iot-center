@@ -1,7 +1,7 @@
 import log from '../../utils/logger.js';
 import { addCommand } from '../../controllers/commandService.js';
 import { getDb } from '../../config/db.js';
-import SunCalc from "suncalc";
+import { getForecast } from '../../services/forecastService.js';
 
 const LOG_TAG = '[Action: Thermostat]';
 
@@ -9,97 +9,6 @@ const LOG_TAG = '[Action: Thermostat]';
 // Mackenzie, BC Coordinates
 const LAT = 55.335;
 const LON = -123.096;
-
-// Module-level state for rate limiting (persists as long as the process is running)
-let lastSolarFetchTime = 0;
-let lastForecast = null;
-const API_MIN_INTERVAL = 30 * 60 * 1000; // 30 minutes (max 2 calls per hour)
-
-async function getForecast(lat, lon, forecastWindowHours, logLevel) {
-    const isSunny = (conditionText) => {
-        if (!conditionText) return false;
-        const terms = ['sunny', 'partly cloudy', 'clear'];
-        return terms.some(term => conditionText.toLowerCase().includes(term));
-    }
-
-    // Return a cached result if the api was called within the last half hour.
-    const now = Date.now();
-    if (now - lastSolarFetchTime < API_MIN_INTERVAL) {
-        return lastForecast;
-    }
-
-    log.info(`${LOG_TAG} Checking Weather API for sky conditions and temperature forecast`, logLevel);
-
-    const url = `https://weather.gc.ca/api/app/v3/en/Location/${lat},${lon}?type=city`;
-    try {
-        const response = await fetch(url);
-        lastSolarFetchTime = now;
-
-        if (!response.ok) {
-            throw new Error(`Weather API error: ${response.status} - Check if Mackenzie site ID is correct.`);
-        }
-
-        const rawData = await response.json();
-
-        if (!Array.isArray(rawData) || !rawData.length) {
-            return lastForecast = null;
-        }
-
-        const data = rawData[0];
-
-        const currentCondition = data.observation?.condition;
-        const currentlySunny = isSunny(currentCondition);
-
-        const hourlyForecastRaw = data.hourlyFcst?.hourly;
-
-        let forecastSunnyPercent = 0;
-        let tempAvgWindow = null; 
-        let tempMaxWindow = null;
-        let tempMaxToday = null;
-        if (!Array.isArray(hourlyForecastRaw) || hourlyForecastRaw.length < forecastWindowHours) {
-            log.error(`${LOG_TAG} Weather API returned unexpected data.`, null, logLevel);
-            return lastForecast = null;
-        }
-        // Only keep the hourly forecast for today.
-        let date = hourlyForecastRaw[0].date;
-        const hourlyForecast = [];
-        hourlyForecastRaw.forEach((info, index) => {
-            if (info.date === date || index < forecastWindowHours) {
-                hourlyForecast.push(info);
-            }
-        });
-
-        const conditionHourly = hourlyForecast.slice(0, forecastWindowHours).map((info) => info.condition);
-        const sunnyHoursCount = conditionHourly.filter(isSunny).length + (currentlySunny ? 1 : 0);
-        forecastSunnyPercent = (sunnyHoursCount / (conditionHourly.length + 1));
-
-        const tempHourly = hourlyForecast.map((info) => parseInt(info.temperature?.metric));
-        const tempHourlyWindow = tempHourly.slice(0, forecastWindowHours);
-        // The avg temp over the forecast window isn't used currently, but please leave in place.
-        tempAvgWindow = tempHourlyWindow.reduce((sum, temp) => sum + temp, 0) / tempHourlyWindow.length;
-        tempMaxWindow = tempHourlyWindow.reduce((max, temp) => Math.max(max, temp), -Infinity);
-        tempMaxToday = tempHourly.reduce((max, temp) => Math.max(max, temp), -Infinity);
-
-        log.info(`${LOG_TAG} Weather API response:`, logLevel);
-        log.info(`${LOG_TAG} - Currently sunny? ${currentlySunny ? 'Yes' : 'No'}`, logLevel);
-        log.info(`${LOG_TAG} - Forecast sunny? ${forecastSunnyPercent.toFixed(2)}`, logLevel);
-        log.info(`${LOG_TAG} - Avg temp during ${forecastWindowHours}h window: ${tempAvgWindow}°C`, logLevel);
-        log.info(`${LOG_TAG} - Max temp during ${forecastWindowHours}h window: ${tempMaxWindow}°C`, logLevel);
-        log.info(`${LOG_TAG} - Max temp forecast for today: ${tempMaxToday}°C`, logLevel);
-
-        return lastForecast = {
-            currentlySunny,
-            forecastSunnyPercent,
-            forecastCloudy: 1 - forecastSunnyPercent,
-            tempAvgWindow,
-            tempMaxWindow,
-            tempMaxToday
-        }
-    } catch (error) {
-        log.error(`${LOG_TAG} getForecast error: ${error.message}`);
-        return lastForecast = null;
-    }
-}
 
 /**
  * Checks the database for the current 'isOn' state of the target device.

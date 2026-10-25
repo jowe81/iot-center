@@ -14,7 +14,46 @@
             "brokerUrl": "http://server.wnet.wn",
             "brokerPort": 1883,
             "username": null,
-            "password": null
+            "password": null,
+            "forward": [
+                {
+                    "device": "woodshed_01",
+                    "key": "data.Sensor.DS18B20.tempOutside.tempC",
+                    "topic": "hub75/text/temp",
+                    "highTopic": "hub75/text/temp_high",
+                    "lowTopic": "hub75/text/temp_low",
+                    "valueOnly": true,
+                    "formatters": [
+                        {
+                            "name": "round",
+                            "decimals": 1
+                        },
+                        {
+                            "name": "suffix",
+                            "text": ""
+                        },
+                        {
+                            "name": "trend",
+                            "windowMinutes": 30,
+                            "threshold": 0.1,
+                            "up": " W",
+                            "down": " C",
+                            "stable": ""
+                        }
+                    ]
+                }
+            ],
+            "clock": {
+                "topic": "hub75/text/time",
+                "intervalSeconds": 15,
+                "format": "HH:MM"
+            },
+            "forecast": {
+                "topic": "hub75/text/forecast_temp",
+                "intervalSeconds": 15,
+                "dayStart": "05:00",
+                "nightStart": "17:00"
+            }
         },
         "kasa": {
             "enabled": true,
@@ -169,7 +208,7 @@
                 "setpoint1Time": "07:00",
                 "setpoint1Temp": 21.2,
                 "setpoint2Time": "20:00",
-                "setpoint2Temp": 19.7,
+                "setpoint2Temp": 20.2,
                 "hysteresis": 0.2,
                 "pushCommand": "whileOn",
                 "useWeatherAdjustments": false,
